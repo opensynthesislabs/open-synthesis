@@ -1,0 +1,35 @@
+name: Build RunPod Handler
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/open_synthesis/handler.py'
+      - 'docker/**'
+      - 'prompts/**'
+      - '.github/workflows/build-handler.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Stage files into Docker context
+        run: |
+          cp src/open_synthesis/handler.py docker/handler.py
+          cp -r prompts docker/prompts
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: docker
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/open-synthesis-handler:latest

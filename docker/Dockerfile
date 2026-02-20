@@ -5,7 +5,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY ../src/open_synthesis/handler.py .
-COPY ../prompts/ ./prompts/
+COPY handler.py .
+COPY prompts/ ./prompts/
 
 CMD ["python", "-u", "handler.py"]
