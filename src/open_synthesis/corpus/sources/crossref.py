@@ -25,7 +25,7 @@ class CrossrefSource(DataSource):
         resp = await http.get(
             _BASE,
             params={"query": query, "rows": max_results},
-            headers={"User-Agent": "OpenSynthesis/0.1 (mailto:research@example.com)"},
+            headers={"User-Agent": "OpenSynthesis/0.1 (mailto:support@opensynthesis.dev)"},
         )
         resp.raise_for_status()
         items = resp.json().get("message", {}).get("items", [])
@@ -35,7 +35,7 @@ class CrossrefSource(DataSource):
         http = await self.client()
         resp = await http.get(
             f"{_BASE}/{identifier}",
-            headers={"User-Agent": "OpenSynthesis/0.1 (mailto:research@example.com)"},
+            headers={"User-Agent": "OpenSynthesis/0.1 (mailto:support@opensynthesis.dev)"},
         )
         if resp.status_code == 404:
             return None

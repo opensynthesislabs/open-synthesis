@@ -31,7 +31,7 @@ class OpenAlexSource(DataSource):
         resp = await http.get(
             f"{_BASE}/works",
             params=params,
-            headers={"User-Agent": "OpenSynthesis/0.1 (mailto:research@example.com)"},
+            headers={"User-Agent": "OpenSynthesis/0.1 (mailto:support@opensynthesis.dev)"},
         )
         resp.raise_for_status()
         results = resp.json().get("results", [])

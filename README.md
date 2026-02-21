@@ -8,7 +8,7 @@
 
 ## What This Does
 
-Open Synthesis ingests peer-reviewed papers and government data from 11 public APIs, stores them in a vector database, and synthesizes answers to research questions using an open-weights LLM that has been processed with [Heretic](https://github.com/0bserver07/heretic-llm) to remove refusal behavior. Every output is citation-grounded, validated for hallucinations, and tagged with a confidence level.
+Open Synthesis ingests peer-reviewed papers and government data from 11 public APIs, stores them in a vector database, and synthesizes answers to research questions using an open-weights LLM that has been processed with [Heretic](https://github.com/p-e-w/heretic) to remove refusal behavior. Every output is citation-grounded, validated for hallucinations, and tagged with a confidence level.
 
 ```
 [CORPUS] → [RETRIEVAL] → [SYNTHESIS] → [VALIDATION]
@@ -49,7 +49,7 @@ open-synthesis synthesize "What is the evidence for psilocybin as a treatment fo
 
 ### Two-Stage Deployment
 
-**Stage 1 — Ablation (one-time):** Run [Heretic](https://github.com/0bserver07/heretic-llm) on an open-weights model to remove refusal behavior. Push to private HuggingFace repo.
+**Stage 1 — Ablation (one-time):** Run [Heretic](https://github.com/p-e-w/heretic) on an open-weights model to remove refusal behavior. Push to private HuggingFace repo.
 
 **Stage 2 — Inference (on-demand):** Deploy ablated model to RunPod serverless with scale-to-zero. 4-bit NF4 quantization for cost efficiency.
 
