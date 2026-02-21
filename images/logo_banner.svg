@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" width="800" height="200">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&amp;family=Space+Mono:wght@400;700&amp;display=swap');
+    </style>
+  </defs>
+
+  <!-- Background: transparent for GitHub compatibility -->
+  <rect width="800" height="200" fill="none"/>
+
+  <!-- Thin rule above -->
+  <line x1="40" y1="38" x2="760" y2="38" stroke="#1a1a1a" stroke-width="0.75"/>
+
+  <!-- OPEN — condensed caps, tracked out -->
+  <text
+    x="40"
+    y="112"
+    font-family="'Space Mono', monospace"
+    font-weight="700"
+    font-size="72"
+    letter-spacing="18"
+    fill="#1a1a1a"
+  >OPEN</text>
+
+  <!-- SYNTHESIS — lighter weight, slightly smaller, offset right -->
+  <text
+    x="44"
+    y="158"
+    font-family="'Space Mono', monospace"
+    font-weight="400"
+    font-size="38"
+    letter-spacing="22"
+    fill="#555555"
+  >SYNTHESIS</text>
+
+  <!-- Thin rule below -->
+  <line x1="40" y1="175" x2="760" y2="175" stroke="#1a1a1a" stroke-width="0.75"/>
+
+  <!-- Small mark: two overlapping circles suggesting synthesis/merge, far right -->
+  <circle cx="734" cy="106" r="14" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+  <circle cx="752" cy="106" r="14" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+
+</svg>

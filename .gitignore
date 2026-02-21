@@ -28,6 +28,13 @@ uv.lock
 .DS_Store
 Thumbs.db
 
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Playwright MCP
+.playwright-mcp/
+
 # Data directories
 data/
 vectorstore/

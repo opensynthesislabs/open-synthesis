@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open Synthesis — Uncensored Scientific Literature Synthesis</title>
+  <meta name="description" content="RAG pipeline for synthesizing peer-reviewed scientific literature using open-source LLMs with directional ablation, deployed on private infrastructure.">
+  <meta property="og:title" content="Open Synthesis">
+  <meta property="og:description" content="RAG pipeline for synthesizing peer-reviewed scientific literature using open-source LLMs with directional ablation.">
+  <meta property="og:image" content="https://raw.githubusercontent.com/opensynthesislabs/open-synthesis/main/images/logo_avatar.png">
+  <meta property="og:url" content="https://opensynthesis.dev">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" width="600" aria-label="Open Synthesis logo">
+          <line x1="40" y1="38" x2="760" y2="38" stroke="#30363d" stroke-width="0.75"/>
+          <text x="40" y="112" font-family="'SF Mono','Cascadia Code','Fira Code',Consolas,'Liberation Mono',Menlo,monospace" font-weight="700" font-size="72" letter-spacing="18" fill="#e6edf3">OPEN</text>
+          <text x="44" y="158" font-family="'SF Mono','Cascadia Code','Fira Code',Consolas,'Liberation Mono',Menlo,monospace" font-weight="400" font-size="38" letter-spacing="22" fill="#8b949e">SYNTHESIS</text>
+          <line x1="40" y1="175" x2="760" y2="175" stroke="#30363d" stroke-width="0.75"/>
+          <circle cx="734" cy="106" r="14" fill="none" stroke="#58a6ff" stroke-width="1.5"/>
+          <circle cx="752" cy="106" r="14" fill="none" stroke="#58a6ff" stroke-width="1.5"/>
+        </svg>
+      </div>
+      <p class="subtitle">RAG pipeline for synthesizing peer-reviewed scientific literature using open-source LLMs with directional ablation, deployed on private infrastructure.</p>
+      <div class="hero-buttons">
+        <a href="https://github.com/opensynthesislabs/open-synthesis" class="btn btn-primary">GitHub</a>
+        <a href="https://github.com/opensynthesislabs/open-synthesis/blob/main/WHITEPAPER.md" class="btn btn-secondary">Whitepaper</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section>
+    <div class="container">
+      <h2>Architecture</h2>
+      <div class="pipeline">
+        <div class="pipeline-step">
+          <div class="step-num">01</div>
+          <h3>Corpus</h3>
+          <p>11 async data sources, deduplication by DOI, paragraph chunking, MiniLM embeddings into ChromaDB.</p>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">02</div>
+          <h3>Retrieval</h3>
+          <p>Dense vector search + BM25 sparse retrieval, reciprocal rank fusion, cross-encoder reranking.</p>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">03</div>
+          <h3>Synthesis</h3>
+          <p>RunPod serverless inference with ablated open-weights LLMs. RAG-grounded output with inline citations.</p>
+        </div>
+        <div class="pipeline-step">
+          <div class="step-num">04</div>
+          <h3>Validation</h3>
+          <p>Citation verification, hallucination detection, uncertainty quantification, human review gate.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Data Sources -->
+  <section>
+    <div class="container">
+      <h2>Data Sources</h2>
+      <div class="sources-group">
+        <h3>Literature</h3>
+        <div class="sources-grid">
+          <div class="source-card">
+            <div class="source-name">Semantic Scholar</div>
+            <div class="source-desc">Papers, abstracts, citation graphs</div>
+          </div>
+          <div class="source-card">
+            <div class="source-name">PubMed</div>
+            <div class="source-desc">Biomedical papers, MeSH terms</div>
+          </div>
+          <div class="source-card">
+            <div class="source-name">arXiv</div>
+            <div class="source-desc">Preprints, PDF links</div>
+          </div>
+          <div class="source-card">
+            <div class="source-name">CrossRef</div>
+            <div class="source-desc">DOI resolution, bibliographic metadata</div>
+          </div>
+          <div class="source-card">
+            <div class="source-name">CORE</div>
+            <div class="source-desc">Full-text open access papers</div>
+          </div>
+          <div class="source-card">
+            <div class="source-name">OpenAlex</div>
+            <div class="source-desc">Papers, abstracts, citation data</div>
+          </div>
+          <div class="source-card">
+            <div class="source-name">ClinicalTrials.gov</div>
+            <div class="source-desc">Trial metadata, status, outcomes</div>
+          </div>
+        </div>
+      </div>
+      <div class="sources-group">
+        <h3>Statistics</h3>
+        <div class="sources-grid">
+          <div class="source-card">
+            <div class="source-name">U.S. Census Bureau</div>
+            <div class="source-desc">ACS, decennial census, economic data</div>
+          </div>
+          <div class="source-card">
+            <div class="source-name">FRED</div>
+            <div class="source-desc">GDP, unemployment, inflation series</div>
+          </div>
+          <div class="source-card">
+            <div class="source-name">OECD</div>
+            <div class="source-desc">International health, education, economics</div>
+          </div>
+          <div class="source-card">
+            <div class="source-name">data.gov</div>
+            <div class="source-desc">U.S. federal open data catalog</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quickstart -->
+  <section>
+    <div class="container">
+      <h2>Quickstart</h2>
+      <div class="code-block">
+        <pre><span class="comment"># Clone and install</span>
+<span class="cmd">$</span> git clone https://github.com/opensynthesislabs/open-synthesis.git
+<span class="cmd">$</span> cd open-synthesis
+<span class="cmd">$</span> uv sync
+
+<span class="comment"># List available data sources</span>
+<span class="cmd">$</span> open-synthesis sources
+
+<span class="comment"># Ingest papers on a topic</span>
+<span class="cmd">$</span> open-synthesis ingest "psilocybin depression" --sources semantic_scholar,pubmed
+
+<span class="comment"># Run a synthesis (requires RunPod endpoint)</span>
+<span class="cmd">$</span> open-synthesis synthesize "What is the evidence for psilocybin as a treatment for MDD?"</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/opensynthesislabs/open-synthesis">GitHub</a>
+        <span>&middot;</span>
+        <a href="https://github.com/opensynthesislabs/open-synthesis/blob/main/WHITEPAPER.md">Whitepaper</a>
+        <span>&middot;</span>
+        <a href="https://github.com/opensynthesislabs/open-synthesis/blob/main/LICENSE">MIT License</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

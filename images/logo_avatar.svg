@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="500" height="500">
+
+  <!-- Background -->
+  <rect width="500" height="500" fill="#f8f8f8"/>
+
+  <!-- Outer border rule -->
+  <rect x="28" y="28" width="444" height="444" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+
+  <!-- Inner border rule, slight inset -->
+  <rect x="36" y="36" width="428" height="428" fill="none" stroke="#1a1a1a" stroke-width="0.5"/>
+
+  <!-- O S stacked monogram, large, centered -->
+  <text
+    x="250"
+    y="240"
+    font-family="'Space Mono', 'Courier New', monospace"
+    font-weight="700"
+    font-size="180"
+    text-anchor="middle"
+    letter-spacing="-4"
+    fill="#1a1a1a"
+  >OS</text>
+
+  <!-- Full name below, small tracked caps -->
+  <text
+    x="250"
+    y="330"
+    font-family="'Space Mono', 'Courier New', monospace"
+    font-weight="400"
+    font-size="22"
+    text-anchor="middle"
+    letter-spacing="8"
+    fill="#555555"
+  >OPEN</text>
+
+  <text
+    x="250"
+    y="360"
+    font-family="'Space Mono', 'Courier New', monospace"
+    font-weight="400"
+    font-size="22"
+    text-anchor="middle"
+    letter-spacing="4"
+    fill="#555555"
+  >SYNTHESIS</text>
+
+  <!-- Two overlapping circles mark — bottom center -->
+  <circle cx="237" cy="418" r="12" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+  <circle cx="261" cy="418" r="12" fill="none" stroke="#1a1a1a" stroke-width="1.5"/>
+
+</svg>

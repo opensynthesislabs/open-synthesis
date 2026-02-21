@@ -1,6 +1,10 @@
-# Open Synthesis
+<p align="center">
+  <img src="images/logo_banner.svg" alt="Open Synthesis" width="600">
+</p>
 
-**RAG pipeline for synthesizing peer-reviewed scientific literature using open-source LLMs with directional ablation, deployed on private infrastructure.**
+<p align="center">
+  <strong>RAG pipeline for synthesizing peer-reviewed scientific literature using open-source LLMs with directional ablation, deployed on private infrastructure.</strong>
+</p>
 
 [opensynthesis.dev](https://opensynthesis.dev)
 
