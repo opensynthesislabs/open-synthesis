@@ -32,6 +32,7 @@
       <p class="subtitle">RAG pipeline for synthesizing peer-reviewed scientific literature using open-source LLMs with directional ablation, deployed on private infrastructure.</p>
       <div class="hero-buttons">
         <a href="https://github.com/opensynthesislabs/open-synthesis" class="btn btn-primary">GitHub</a>
+        <a href="https://huggingface.co/opensynthesis/Qwen3-14B-heretic" class="btn btn-secondary">Model</a>
         <a href="https://github.com/opensynthesislabs/open-synthesis/blob/main/WHITEPAPER.md" class="btn btn-secondary">Whitepaper</a>
       </div>
     </div>
@@ -127,6 +128,59 @@
     </div>
   </section>
 
+  <!-- Case Studies -->
+  <section>
+    <div class="container">
+      <h2>Case Studies</h2>
+      <p class="section-intro">Real synthesis outputs from the pipeline. Each study was generated from peer-reviewed sources ingested via Semantic Scholar and PubMed, synthesized by <a href="https://huggingface.co/opensynthesis/Qwen3-14B-heretic">Qwen3-14B-heretic</a>, and includes inline citations and falsifiability criteria.</p>
+      <div class="case-studies-grid">
+
+        <div class="case-study-card">
+          <div class="case-study-tag">behavioral genetics</div>
+          <h3>Heritability of Intelligence</h3>
+          <p class="case-study-query">"What is the current scientific evidence on the heritability of intelligence?"</p>
+          <div class="case-study-excerpt">
+            <p>Intelligence is highly heritable, with estimates ranging from 53% to 86% depending on population and age group. Longitudinal twin studies consistently show genetic factors as the main drivers of continuity in cognitive ability. GWAS polygenic scores are associated with general IQ, epigenetic modifications, and gray matter density. Environmental factors like SES moderate genetic influences, with higher heritability in higher-SES environments.</p>
+          </div>
+          <div class="case-study-stats">
+            <span>13 inline citations</span>
+            <span>30 documents ingested</span>
+          </div>
+          <a href="https://github.com/opensynthesislabs/open-synthesis/blob/main/case_studies/heritability_of_intelligence.md" class="case-study-link">Read full synthesis &rarr;</a>
+        </div>
+
+        <div class="case-study-card">
+          <div class="case-study-tag">cognitive neuroscience</div>
+          <h3>Sex Differences in Cognition</h3>
+          <p class="case-study-query">"What does the peer-reviewed literature show about sex differences in cognitive abilities?"</p>
+          <div class="case-study-excerpt">
+            <p>Males outperform in spatial reasoning tasks including mental rotation and sound localization. Females outperform in verbal fluency, verbal memory, and perceptual speed. Math anxiety mediates gender gaps in mathematical performance more than ability differences. Neuroanatomical correlates include sex-specific amygdala growth patterns and differential hemispheric organization.</p>
+          </div>
+          <div class="case-study-stats">
+            <span>18 inline citations</span>
+            <span>44 documents ingested</span>
+          </div>
+          <a href="https://github.com/opensynthesislabs/open-synthesis/blob/main/case_studies/sex_differences_cognition.md" class="case-study-link">Read full synthesis &rarr;</a>
+        </div>
+
+        <div class="case-study-card">
+          <div class="case-study-tag">psychopharmacology</div>
+          <h3>Psilocybin &amp; MDMA-Assisted Therapy</h3>
+          <p class="case-study-query">"What is the clinical trial evidence for psilocybin therapy for depression and MDMA-assisted therapy for PTSD?"</p>
+          <div class="case-study-excerpt">
+            <p>Phase III MDMA trials show 67% of participants no longer meeting PTSD criteria after three sessions (d = 0.91). Psilocybin-assisted therapy produces large antidepressant effects with rapid onset — hours rather than weeks. Effect sizes exceed conventional antidepressants by more than double. FDA granted breakthrough therapy designation to MDMA in 2017.</p>
+          </div>
+          <div class="case-study-stats">
+            <span>18 inline citations</span>
+            <span>35 documents ingested</span>
+          </div>
+          <a href="https://github.com/opensynthesislabs/open-synthesis/blob/main/case_studies/psychedelic_therapy.md" class="case-study-link">Read full synthesis &rarr;</a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
   <!-- Quickstart -->
   <section>
     <div class="container">
@@ -154,6 +208,8 @@
     <div class="container">
       <div class="footer-links">
         <a href="https://github.com/opensynthesislabs/open-synthesis">GitHub</a>
+        <span>&middot;</span>
+        <a href="https://huggingface.co/opensynthesis/Qwen3-14B-heretic">HuggingFace</a>
         <span>&middot;</span>
         <a href="https://github.com/opensynthesislabs/open-synthesis/blob/main/WHITEPAPER.md">Whitepaper</a>
         <span>&middot;</span>
