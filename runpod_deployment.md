@@ -1,259 +1,218 @@
-# RunPod Serverless Deployment Guide
+# RunPod Deployment Guide
 
 ## Overview
 
-Open Synthesis uses a two-stage deployment pipeline. Stage one runs Heretic to produce a directionally ablated model and pushes it to a private Hugging Face repository. Stage two deploys that model to a RunPod serverless endpoint for inference. These stages are independent — Heretic runs once; RunPod inference runs on demand.
+Open Synthesis runs inference on a directionally ablated open-weights LLM hosted on RunPod. This guide covers the fastest path to a working deployment using a pre-ablated model and vLLM on a RunPod GPU pod.
+
+For custom ablation with Heretic, see [Stage 1](#stage-1-custom-ablation-with-heretic-optional) below.
 
 ---
 
-## Stage 1: Directional Ablation with Heretic
+## Quick Start: GPU Pod with vLLM
+
+The fastest way to get running. Uses a pre-ablated model from HuggingFace and RunPod's official PyTorch template (pre-cached on their machines for fast startup).
+
+### Prerequisites
+
+- RunPod account with $10+ credits ([runpod.io](https://runpod.io))
+- SSH public key added to RunPod (Settings → SSH Public Keys)
+
+### 1. Create the pod
+
+Use RunPod's pre-cached PyTorch template for instant startup. Custom Docker images require a long pull; the official templates are already on every machine.
+
+```bash
+# Via RunPod dashboard:
+# 1. Pods → Deploy → GPU Pod
+# 2. Select "Runpod Pytorch 2.4" template
+# 3. Pick RTX 4090 (24GB, ~$0.59/hr) — sufficient for 8B models at fp16
+# 4. Set container disk to 50GB, volume to 30GB
+# 5. Enable SSH, expose port 8000/http
+# 6. Deploy
+```
+
+Or via API:
+
+```bash
+curl -s "https://api.runpod.io/graphql?api_key=$RUNPOD_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "query": "mutation { podFindAndDeployOnDemand(input: {
+      name: \"open-synthesis\",
+      templateId: \"runpod-torch-v240\",
+      gpuTypeId: \"NVIDIA GeForce RTX 4090\",
+      cloudType: SECURE,
+      gpuCount: 1,
+      volumeInGb: 30,
+      containerDiskInGb: 50,
+      startJupyter: true,
+      startSsh: true,
+      ports: \"8000/http,22/tcp\"
+    }) { id machineId costPerHr } }"
+  }'
+```
+
+### 2. Install vLLM and start serving
+
+SSH into the pod and run:
+
+```bash
+# Install vLLM (includes torch, transformers, etc.)
+pip install vllm
+
+# Fix tokenizer compatibility (required for heretic models)
+python3 -c "
+import json, os
+cache = os.path.expanduser('~/.cache/huggingface/hub')
+# This runs after the first model download — re-run the server command below
+# first to trigger the download, let it fail, then run this fix, then restart.
+for root, dirs, files in os.walk(cache):
+    for f in files:
+        if f == 'tokenizer_config.json':
+            path = os.path.join(root, f)
+            with open(path) as fh:
+                data = json.load(fh)
+            if 'extra_special_tokens' in data:
+                del data['extra_special_tokens']
+                with open(path, 'w') as fh:
+                    json.dump(data, fh, indent=2)
+                print(f'Patched: {path}')
+"
+
+# Start vLLM with the ablated model
+python3 -m vllm.entrypoints.openai.api_server \
+  --model p-e-w/Qwen3-8B-heretic \
+  --dtype half \
+  --max-model-len 8192 \
+  --gpu-memory-utilization 0.90 \
+  --host 0.0.0.0 \
+  --port 8000
+```
+
+First run downloads ~16GB of model weights. Subsequent starts use the cached model on the volume.
+
+### 3. Test the endpoint
+
+```bash
+curl http://localhost:8000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "p-e-w/Qwen3-8B-heretic",
+    "messages": [
+      {"role": "system", "content": "You are a research synthesis tool. Synthesize the following retrieved source material accurately and cite sources inline.\n\n<retrieved_sources>\n[SOURCE: Open Science Collaboration (2015)]\nThe Reproducibility Project replicated 100 psychology studies. Only 36% produced significant results.\n</retrieved_sources>"},
+      {"role": "user", "content": "Summarize the replication crisis."}
+    ],
+    "temperature": 0.3,
+    "max_tokens": 1024
+  }'
+```
+
+The API is OpenAI-compatible. Use `https://{POD_ID}-8000.proxy.runpod.net` for external access.
+
+---
+
+## Known Issues and Workarounds
+
+### Use official templates, not custom Docker images
+
+Custom Docker images (even small ones) can take 10+ minutes to pull on RunPod machines. The official `runpod-torch-v240` template is pre-cached and starts in seconds. Install dependencies at runtime instead.
+
+### RunPod serverless may not allocate workers
+
+We encountered persistent issues with RunPod serverless endpoints failing to allocate GPU workers, even with sufficient funds and correct configuration. Workers would show as "ready" in health checks but never process jobs, or simply never initialize at all. GPU pods (on-demand) work reliably. **Use GPU pods for initial deployment.**
+
+### Heretic models need tokenizer patching
+
+Models processed by Heretic may have `extra_special_tokens` as a list in `tokenizer_config.json`, but transformers ≥4.57 expects a dict. This causes `TypeError: Special token ... has to be either str or AddedToken but got: <class 'dict'>`. Fix by removing the field from the cached config (see step 2 above).
+
+### Multimodal model architectures don't work with vLLM text mode
+
+Models like `gemma-3-12b-it-heretic` use `Gemma3ForConditionalGeneration` (multimodal), which is incompatible with vLLM's standard text serving and with `AutoModelForCausalLM`. Use text-only models with `ForCausalLM` architectures:
+
+| Model | Architecture | vLLM Support |
+|---|---|---|
+| `p-e-w/Qwen3-8B-heretic` | `Qwen3ForCausalLM` | Works |
+| `p-e-w/Llama-3.1-8B-Instruct-heretic` | `LlamaForCausalLM` | Works |
+| `p-e-w/gemma-3-12b-it-heretic` | `Gemma3ForConditionalGeneration` | Does not work |
+
+### transformers / vLLM version coupling
+
+vLLM pins specific transformers versions. Do not independently upgrade or downgrade transformers — always install vLLM first and let it pull the correct version. If you see `ImportError: cannot import name 'Gemma3Config'`, run `pip install --force-reinstall vllm` to reset both packages.
+
+---
+
+## Model Selection
+
+### Pre-ablated models (recommended for quick start)
+
+These are publicly available on HuggingFace, processed with [Heretic](https://github.com/p-e-w/heretic):
+
+| Model | Params | VRAM (fp16) | GPU | Cost/hr |
+|---|---|---|---|---|
+| `p-e-w/Qwen3-8B-heretic` | 8B | ~16GB | RTX 4090 | ~$0.59 |
+| `p-e-w/Llama-3.1-8B-Instruct-heretic` | 8B | ~16GB | RTX 4090 | ~$0.59 |
+| `p-e-w/gpt-oss-20b-heretic-v3` | 20B | ~40GB | A100 40GB | ~$1.64 |
+
+For research synthesis, `Qwen3-8B-heretic` offers the best quality-to-cost ratio. Qwen3 is a strong reasoner with good citation-following behavior.
+
+---
+
+## Stage 1: Custom Ablation with Heretic (Optional)
+
+Skip this if using a pre-ablated model from the table above.
 
 ### What Heretic does
 
-Heretic implements a parametrized variant of directional ablation (Arditi et al., 2024). For each transformer layer, it identifies the "refusal direction" — the geometric direction in the residual stream that corresponds to refusal behavior, computed as a difference-of-means between first-token activations for harmful and harmless prompts. It then orthogonalizes the model's attention out-projection and MLP down-projection matrices against those directions, suppressing the expression of the refusal feature in subsequent forward passes.
+Heretic implements directional ablation (Arditi et al., 2024). For each transformer layer, it identifies the "refusal direction" in the residual stream and orthogonalizes the model's projection matrices against it. Parameters are optimized automatically via Optuna TPE, co-minimizing refusal rate and KL divergence.
 
-The ablation parameters (direction index, weight kernel shape, per-component weights) are searched automatically using Optuna TPE optimization, co-minimizing refusal rate and KL divergence from the original model. This is fully automatic — no manual configuration of transformer internals is required.
-
-### Hardware requirements for ablation
-
-The ablation process loads the full model weights and runs forward passes, so VRAM requirements are high:
-
-| Model | Min VRAM for ablation | Recommended |
-|---|---|---|
-| Qwen3-14B | 28GB (2x RTX 3090) | A100 40GB |
-| Qwen3-32B | 64GB | A100 80GB |
-| Llama 3.3 70B | 140GB+ | 2x A100 80GB |
-
-For cost efficiency, run Heretic on a RunPod on-demand instance (not serverless) — start it, run ablation, push to HuggingFace, terminate. A100 80GB on-demand instances on RunPod run approximately $2.50/hr. A 32B ablation takes 2-4 hours depending on optimization trial count.
-
-### Running Heretic
+### Running ablation
 
 ```bash
-# Set up environment
 pip install heretic-llm
 
-# Run ablation — fully automatic
-heretic Qwen/Qwen3-32B-Instruct
+# Run on a RunPod GPU pod (A100 recommended for 14B+ models)
+heretic Qwen/Qwen3-8B-Instruct
 ```
 
-Heretic will:
-1. Benchmark your hardware to determine optimal batch size
-2. Download the base model from Hugging Face if not cached
-3. Generate harmful/harmless prompt pairs for computing refusal directions
-4. Run Optuna TPE optimization across ablation parameter space
-5. Evaluate candidate models against refusal and KL divergence metrics
-6. Present the best result and offer to save locally or push to Hugging Face
+Push to HuggingFace when prompted. Use a **private** repository.
 
-When prompted, push to a **private** Hugging Face repository:
+### Hardware requirements
 
-```
-Save model? [y/N]: y
-Upload to Hugging Face? [y/N]: y
-Repository name: your-username/open-synthesis-qwen3-32b
-Make public? [y/N]: N
-```
-
-### Heretic configuration options
-
-The default configuration works well. For research synthesis use cases, consider:
-
-```toml
-# config.toml — place in working directory to override defaults
-[optimization]
-n_trials = 200          # Default is 100; more trials = better result, longer runtime
-timeout = 7200          # Max optimization time in seconds
-
-[evaluation]
-n_harmful = 100         # Harmful prompts for refusal measurement
-n_harmless = 100        # Harmless prompts for KL divergence measurement
-```
-
-Run with config: `heretic Qwen/Qwen3-32B-Instruct --config config.toml`
-
-### Verifying the ablation
-
-Heretic includes built-in evaluation. After ablation:
-
-```bash
-heretic --model Qwen/Qwen3-32B-Instruct --evaluate-model your-username/open-synthesis-qwen3-32b
-```
-
-This outputs refusal rate and KL divergence. Target metrics:
-- Refusal rate: <5/100 on the harmful prompt set
-- KL divergence: <0.5 (Heretic typically achieves 0.1-0.3 on well-supported models)
+| Model | Min VRAM | Recommended | Est. time | Est. cost |
+|---|---|---|---|---|
+| Qwen3-8B | 16GB | RTX 4090 | ~1 hr | ~$0.60 |
+| Qwen3-14B | 28GB | A100 40GB | ~1.5 hrs | ~$2.50 |
+| Qwen3-32B | 64GB | A100 80GB | ~3 hrs | ~$7.50 |
 
 ---
 
-## Stage 2: RunPod Serverless Deployment
+## CI/CD: GitHub Actions Build Pipeline
 
-### Container setup
+The repository includes a GitHub Actions workflow that builds and pushes a Docker image to Docker Hub whenever `handler.py`, `docker/`, or `prompts/` change on `main`. This is for future serverless deployment once RunPod serverless issues are resolved.
 
-```dockerfile
-# Dockerfile
-FROM runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY handler.py .
-COPY prompts/ ./prompts/
-
-CMD ["python", "-u", "handler.py"]
+```yaml
+# .github/workflows/build-handler.yml
+# Triggered on push to main
+# Requires secrets: DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
 ```
 
-```txt
-# requirements.txt
-runpod
-transformers>=4.45.0
-accelerate
-bitsandbytes
-huggingface_hub
-torch
-```
-
-```python
-# handler.py
-import runpod
-import os
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
-
-MODEL_ID = os.environ.get("MODEL_ID", "your-username/open-synthesis-qwen3-32b")
-HF_TOKEN = os.environ.get("HF_TOKEN")
-
-print(f"Loading model: {MODEL_ID}")
-
-quantization_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_compute_dtype=torch.bfloat16,
-    bnb_4bit_use_double_quant=True,
-    bnb_4bit_quant_type="nf4"
-)
-
-tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, token=HF_TOKEN)
-model = AutoModelForCausalLM.from_pretrained(
-    MODEL_ID,
-    quantization_config=quantization_config,
-    device_map="auto",
-    token=HF_TOKEN
-)
-model.eval()
-print("Model loaded.")
-
-def handler(job):
-    job_input = job["input"]
-    prompt = job_input.get("prompt", "")
-    context = job_input.get("context", "")
-    temperature = job_input.get("temperature", 0.3)
-    max_new_tokens = job_input.get("max_new_tokens", 4096)
-
-    messages = [
-        {
-            "role": "system",
-            "content": f"You are a research synthesis tool. Synthesize the following retrieved source material accurately and cite sources inline.\n\n<retrieved_sources>\n{context}\n</retrieved_sources>"
-        },
-        {"role": "user", "content": prompt}
-    ]
-
-    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    inputs = tokenizer([text], return_tensors="pt").to(model.device)
-
-    with torch.no_grad():
-        output_ids = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=0.9,
-            repetition_penalty=1.1,
-            do_sample=temperature > 0,
-            pad_token_id=tokenizer.eos_token_id
-        )
-
-    generated = output_ids[0][inputs["input_ids"].shape[1]:]
-    response = tokenizer.decode(generated, skip_special_tokens=True)
-    return {"synthesis": response}
-
-runpod.serverless.start({"handler": handler})
-```
-
-### Build and push
-
-```bash
-docker build -t your-registry/open-synthesis:latest .
-docker push your-registry/open-synthesis:latest
-```
-
-### RunPod endpoint configuration
-
-1. Serverless → New Endpoint → select your container image
-2. GPU selection:
-
-| Model | Recommended GPU | VRAM (4-bit) | Approx cost/hr |
-|---|---|---|---|
-| Qwen3-14B | RTX 4090 or A100 40GB | ~10GB | $0.74–$1.64 |
-| Qwen3-32B | A100 80GB | ~20GB | $2.49 |
-| Llama 3.3 70B | A100 80GB | ~40GB | $2.49 |
-
-3. Settings:
-   - Min workers: 0 (scale to zero when idle)
-   - Max workers: 2–3
-   - Idle timeout: 60 seconds
-   - Execution timeout: 300 seconds
-   - Environment variables: `MODEL_ID`, `HF_TOKEN`
+The built image is at `${DOCKERHUB_USERNAME}/open-synthesis-handler:latest`.
 
 ---
 
-## Stage 3: Synthesis Client
+## Using the Synthesis Client
 
-```python
-# scripts/synthesis_client.py
-import chromadb
-from sentence_transformers import SentenceTransformer
-import requests, os, json
+```bash
+# Set environment variables
+export RUNPOD_POD_ID="your-pod-id"
 
-RUNPOD_ENDPOINT_ID = os.environ["RUNPOD_ENDPOINT_ID"]
-RUNPOD_API_KEY = os.environ["RUNPOD_API_KEY"]
-VECTOR_STORE_PATH = os.environ.get("VECTOR_STORE_PATH", "./vectorstore")
+# Ingest data
+open-synthesis ingest "psilocybin depression" --domain psychopharm --sources semantic_scholar,pubmed
 
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
-
-def retrieve_context(question: str, domain: str, n_results: int = 20) -> str:
-    client = chromadb.PersistentClient(path=VECTOR_STORE_PATH)
-    collection = client.get_collection(domain)
-    query_embedding = embedder.encode(question).tolist()
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=n_results,
-        include=["documents", "metadatas"]
-    )
-    parts = []
-    for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
-        label = f"{meta.get('authors','Unknown')} ({meta.get('year','n.d.')})"
-        parts.append(f"[SOURCE: {label} | {meta.get('source_type','')} | replication: {meta.get('replication_status','')}]\n{doc}")
-    return "\n\n---\n\n".join(parts)
-
-def synthesize(question: str, domain: str) -> dict:
-    context = retrieve_context(question, domain)
-    with open("prompts/synthesis.txt") as f:
-        prompt = f.read().format(question=question)
-
-    response = requests.post(
-        f"https://api.runpod.ai/v2/{RUNPOD_ENDPOINT_ID}/runsync",
-        headers={"Authorization": f"Bearer {RUNPOD_API_KEY}", "Content-Type": "application/json"},
-        json={"input": {"prompt": prompt, "context": context, "temperature": 0.3, "max_new_tokens": 4096}},
-        timeout=300
-    )
-    result = response.json()
-    if "output" not in result:
-        raise RuntimeError(f"RunPod error: {result}")
-    return {"question": question, "domain": domain, "synthesis": result["output"]["synthesis"]}
-
-if __name__ == "__main__":
-    import sys
-    result = synthesize(sys.argv[1], sys.argv[2])
-    print(result["synthesis"])
+# Run synthesis against the vLLM endpoint
+open-synthesis synthesize \
+  "What is the evidence for psilocybin as a treatment for major depressive disorder?" \
+  --domain psychopharm
 ```
 
 ---
@@ -261,51 +220,34 @@ if __name__ == "__main__":
 ## Inference Configuration
 
 ```yaml
-# inference_config.yaml
 temperature: 0.3
 top_p: 0.9
 repetition_penalty: 1.1
 max_new_tokens: 4096
 n_retrieval_results: 20
 embedding_model: "all-MiniLM-L6-v2"
-citation_check_enabled: true
-hallucination_check_enabled: true
-uncertainty_quantification: true
-human_review_required: true
 ```
 
 ---
 
 ## Cost Estimates
 
-**One-time ablation (Stage 1):**
+**GPU pod (on-demand):**
 
-| Model | GPU | Est. time | Est. cost |
-|---|---|---|---|
-| Qwen3-14B | A100 40GB | ~1.5 hrs | ~$2.50 |
-| Qwen3-32B | A100 80GB | ~3 hrs | ~$7.50 |
-| Llama 3.3 70B | 2x A100 80GB | ~6 hrs | ~$30 |
+| GPU | Cost/hr | Good for |
+|---|---|---|
+| RTX 4090 (24GB) | ~$0.59 | 8B models at fp16 |
+| A100 40GB | ~$1.64 | 14-20B models |
+| A100 80GB | ~$2.49 | 32B+ models |
 
-**Per-synthesis inference (Stage 2):**
+A full synthesis session (corpus ingestion + 10 synthesis outputs) on Qwen3-8B takes ~30 minutes of GPU time, costing ~$0.30.
 
-| Model | GPU | Time | Cost/output |
-|---|---|---|---|
-| Qwen3-14B | RTX 4090 | ~2 min | ~$0.02 |
-| Qwen3-32B | A100 80GB | ~3 min | ~$0.12 |
-| Llama 3.3 70B | A100 80GB | ~6 min | ~$0.25 |
+**Cost management:** Stop the pod when not in use. The volume persists (model weights cached), so restarts only take ~60 seconds for model loading.
 
-A full four-domain case study (8-10 outputs per domain) costs under $20 on Qwen3-32B.
+```bash
+# Stop pod (keeps volume)
+runpodctl stop pod $POD_ID
 
----
-
-## Troubleshooting
-
-**Heretic OOM during ablation:** Use a larger GPU, or pass `--batch-size 1` to reduce memory pressure at the cost of longer runtime.
-
-**RunPod cold start latency:** With min workers at 0, expect 60-120 second cold start when scaling from zero. Set min workers to 1 for interactive development (adds ~$60/month at A100 pricing).
-
-**Poor synthesis quality:** Check corpus quality first. Verify ablation success with `heretic --evaluate-model`. Try lowering temperature to 0.1.
-
-**Private HuggingFace repo access from RunPod:** Set `HF_TOKEN` as a RunPod environment variable. Use a read-only token scoped to the specific repo.
-
-**Model architecture not supported:** Heretic supports most dense transformer architectures. SSMs, hybrid models, and models with inhomogeneous layers are not yet supported. Check the Heretic GitHub issues for your model.
+# Resume later
+runpodctl resume pod $POD_ID
+```

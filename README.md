@@ -47,17 +47,23 @@ open-synthesis synthesize "What is the evidence for psilocybin as a treatment fo
 
 2. **Retrieval** — Hybrid search combining dense vector similarity and BM25 keyword matching via reciprocal rank fusion. Cross-encoder reranking placeholder for production use.
 
-3. **Synthesis** — Research questions are sent with retrieved context to an ablated open-weights LLM running on RunPod serverless. The model produces inline-cited synthesis with falsifiability criteria.
+3. **Synthesis** — Research questions are sent with retrieved context to an ablated open-weights LLM running on RunPod via vLLM. The model produces inline-cited synthesis with falsifiability criteria.
 
 4. **Validation** — Three-pass validation: citation verification (are claims supported by cited sources?), hallucination detection (fabricated stats, names, or overstatements?), and uncertainty quantification (well-supported / limited / contested / insufficient).
 
-### Two-Stage Deployment
+### Deployment
 
-**Stage 1 — Ablation (one-time):** Run [Heretic](https://github.com/p-e-w/heretic) on an open-weights model to remove refusal behavior. Push to private HuggingFace repo.
+Deploy a pre-ablated model on a RunPod GPU pod with [vLLM](https://github.com/vllm-project/vllm). Uses [Heretic](https://github.com/p-e-w/heretic) models from HuggingFace — no custom ablation required.
 
-**Stage 2 — Inference (on-demand):** Deploy ablated model to RunPod serverless with scale-to-zero. 4-bit NF4 quantization for cost efficiency.
+```bash
+# On a RunPod GPU pod (RTX 4090, ~$0.59/hr):
+pip install vllm
+python3 -m vllm.entrypoints.openai.api_server \
+  --model p-e-w/Qwen3-8B-heretic \
+  --dtype half --max-model-len 8192 --port 8000
+```
 
-See [runpod_deployment.md](runpod_deployment.md) for detailed deployment instructions.
+See [runpod_deployment.md](runpod_deployment.md) for full setup, known issues, and model selection.
 
 ## Configuration
 
