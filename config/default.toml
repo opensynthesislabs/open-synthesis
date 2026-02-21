@@ -4,7 +4,7 @@ vector_store_path = "./vectorstore"
 model = "all-MiniLM-L6-v2"
 
 [retrieval]
-n_results = 5
+n_results = 20
 dense_weight = 0.6
 sparse_weight = 0.4
 
@@ -17,7 +17,7 @@ max_new_tokens = 4096
 [runpod]
 pod_id = ""
 api_key = ""
-model = "p-e-w/Qwen3-8B-heretic"
+model = "opensynthesis/Qwen3-14B-heretic"
 timeout = 300
 
 [validation]

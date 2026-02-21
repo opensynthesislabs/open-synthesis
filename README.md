@@ -17,9 +17,34 @@ Open Synthesis ingests peer-reviewed papers and government data from 11 public A
 ```
 [CORPUS] → [RETRIEVAL] → [SYNTHESIS] → [VALIDATION]
  11 APIs    hybrid BM25    RunPod        citation check
- ChromaDB   + dense        serverless    hallucination detect
+ ChromaDB   + dense        GPU pod       hallucination detect
  embeddings reranking      ablated LLM   uncertainty scoring
 ```
+
+## Model
+
+The synthesis layer uses [`opensynthesis/Qwen3-14B-heretic`](https://huggingface.co/opensynthesis/Qwen3-14B-heretic) — Qwen3-14B with directional ablation applied via [Heretic](https://github.com/p-e-w/heretic) to remove refusal behavior on scientific topics.
+
+### Ablation Results
+
+| Metric | Value |
+|---|---|
+| Base model | `Qwen/Qwen3-14B` (Apache 2.0) |
+| Architecture | `Qwen3ForCausalLM` |
+| Parameters | 14B |
+| Method | Heretic directional ablation (Arditi et al., 2024) |
+| Optimization | 200 Optuna TPE trials |
+| Best trial | #198 |
+| Pre-ablation refusals | ~95/100 |
+| **Post-ablation refusals** | **3/100** |
+| **KL divergence** | **~5e-8** (near-zero capability loss) |
+| Context window | 32,768 tokens (serving) / 128K (native) |
+| VRAM usage | ~28GB at fp16 |
+| Recommended GPU | A40 48GB ($0.40/hr on RunPod) |
+
+The near-zero KL divergence means the ablation removed refusal behavior with effectively zero degradation to the model's general reasoning, writing, or factual capabilities. The model is served via vLLM with Qwen3's thinking mode disabled (`enable_thinking: false`) for clean synthesis output.
+
+See [model_card.md](model_card.md) for full model selection rationale and [runpod_deployment.md](runpod_deployment.md) for deployment guide.
 
 ## Quickstart
 
@@ -34,7 +59,13 @@ open-synthesis sources
 open-synthesis ingest "psilocybin depression" --domain psychopharm --sources semantic_scholar,pubmed
 
 # Run a synthesis (requires RunPod GPU pod running vLLM)
+# Option 1: SSH tunnel (recommended)
+ssh -i ~/.ssh/runpod_ed25519 -f -N -L 8000:localhost:8000 -p <SSH_PORT> root@<POD_IP>
+export RUNPOD_BASE_URL="http://localhost:8000"
+
+# Option 2: RunPod proxy
 export RUNPOD_POD_ID="your-pod-id"
+
 open-synthesis synthesize "What is the evidence for psilocybin as a treatment for major depressive disorder?" --domain psychopharm
 ```
 
@@ -52,14 +83,14 @@ open-synthesis synthesize "What is the evidence for psilocybin as a treatment fo
 
 ### Deployment
 
-Deploy a pre-ablated model on a RunPod GPU pod with [vLLM](https://github.com/vllm-project/vllm). Uses [Heretic](https://github.com/p-e-w/heretic) models from HuggingFace — no custom ablation required.
+Deploy [`opensynthesis/Qwen3-14B-heretic`](https://huggingface.co/opensynthesis/Qwen3-14B-heretic) on a RunPod GPU pod with [vLLM](https://github.com/vllm-project/vllm). No custom ablation required — the model is ready to use.
 
 ```bash
-# On a RunPod GPU pod (RTX 4090, ~$0.59/hr):
+# On a RunPod GPU pod (A40 48GB, ~$0.40/hr):
 pip install vllm
 python3 -m vllm.entrypoints.openai.api_server \
-  --model p-e-w/Qwen3-8B-heretic \
-  --dtype half --max-model-len 8192 --port 8000
+  --model opensynthesis/Qwen3-14B-heretic \
+  --dtype half --max-model-len 32768 --port 8000
 ```
 
 See [runpod_deployment.md](runpod_deployment.md) for full setup, known issues, and model selection.

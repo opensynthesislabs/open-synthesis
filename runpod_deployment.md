@@ -25,8 +25,8 @@ Use RunPod's pre-cached PyTorch template for instant startup. Custom Docker imag
 # Via RunPod dashboard:
 # 1. Pods → Deploy → GPU Pod
 # 2. Select "Runpod Pytorch 2.4" template
-# 3. Pick RTX 4090 (24GB, ~$0.59/hr) — sufficient for 8B models at fp16
-# 4. Set container disk to 50GB, volume to 30GB
+# 3. Pick A40 48GB (~$0.40/hr) — sufficient for 14B at fp16
+# 4. Set container disk to 50GB, volume to 50GB
 # 5. Enable SSH, expose port 8000/http
 # 6. Deploy
 ```
@@ -40,10 +40,10 @@ curl -s "https://api.runpod.io/graphql?api_key=$RUNPOD_API_KEY" \
     "query": "mutation { podFindAndDeployOnDemand(input: {
       name: \"open-synthesis\",
       templateId: \"runpod-torch-v240\",
-      gpuTypeId: \"NVIDIA GeForce RTX 4090\",
+      gpuTypeId: \"NVIDIA A40\",
       cloudType: SECURE,
       gpuCount: 1,
-      volumeInGb: 30,
+      volumeInGb: 50,
       containerDiskInGb: 50,
       startJupyter: true,
       startSsh: true,
@@ -60,36 +60,17 @@ SSH into the pod and run:
 # Install vLLM (includes torch, transformers, etc.)
 pip install vllm
 
-# Fix tokenizer compatibility (required for heretic models)
-python3 -c "
-import json, os
-cache = os.path.expanduser('~/.cache/huggingface/hub')
-# This runs after the first model download — re-run the server command below
-# first to trigger the download, let it fail, then run this fix, then restart.
-for root, dirs, files in os.walk(cache):
-    for f in files:
-        if f == 'tokenizer_config.json':
-            path = os.path.join(root, f)
-            with open(path) as fh:
-                data = json.load(fh)
-            if 'extra_special_tokens' in data:
-                del data['extra_special_tokens']
-                with open(path, 'w') as fh:
-                    json.dump(data, fh, indent=2)
-                print(f'Patched: {path}')
-"
-
 # Start vLLM with the ablated model
 python3 -m vllm.entrypoints.openai.api_server \
-  --model p-e-w/Qwen3-8B-heretic \
+  --model opensynthesis/Qwen3-14B-heretic \
   --dtype half \
-  --max-model-len 8192 \
+  --max-model-len 32768 \
   --gpu-memory-utilization 0.90 \
   --host 0.0.0.0 \
   --port 8000
 ```
 
-First run downloads ~16GB of model weights. Subsequent starts use the cached model on the volume.
+First run downloads ~28GB of model weights. Subsequent starts use the cached model on the volume.
 
 ### 3. Test the endpoint
 
@@ -97,17 +78,18 @@ First run downloads ~16GB of model weights. Subsequent starts use the cached mod
 curl http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "p-e-w/Qwen3-8B-heretic",
+    "model": "opensynthesis/Qwen3-14B-heretic",
     "messages": [
       {"role": "system", "content": "You are a research synthesis tool. Synthesize the following retrieved source material accurately and cite sources inline.\n\n<retrieved_sources>\n[SOURCE: Open Science Collaboration (2015)]\nThe Reproducibility Project replicated 100 psychology studies. Only 36% produced significant results.\n</retrieved_sources>"},
       {"role": "user", "content": "Summarize the replication crisis."}
     ],
     "temperature": 0.3,
-    "max_tokens": 1024
+    "max_tokens": 1024,
+    "chat_template_kwargs": {"enable_thinking": false}
   }'
 ```
 
-The API is OpenAI-compatible. Use `https://{POD_ID}-8000.proxy.runpod.net` for external access.
+The `chat_template_kwargs` disables Qwen3's thinking mode for clean output. The API is OpenAI-compatible. Use `https://{POD_ID}-8000.proxy.runpod.net` for external access, or SSH tunnel for reliability.
 
 ---
 
@@ -121,19 +103,32 @@ Custom Docker images (even small ones) can take 10+ minutes to pull on RunPod ma
 
 We encountered persistent issues with RunPod serverless endpoints failing to allocate GPU workers, even with sufficient funds and correct configuration. Workers would show as "ready" in health checks but never process jobs, or simply never initialize at all. GPU pods (on-demand) work reliably. **Use GPU pods for initial deployment.**
 
-### Heretic models need tokenizer patching
+### Use text-only model architectures
 
-Models processed by Heretic may have `extra_special_tokens` as a list in `tokenizer_config.json`, but transformers ≥4.57 expects a dict. This causes `TypeError: Special token ... has to be either str or AddedToken but got: <class 'dict'>`. Fix by removing the field from the cached config (see step 2 above).
-
-### Multimodal model architectures don't work with vLLM text mode
-
-Models like `gemma-3-12b-it-heretic` use `Gemma3ForConditionalGeneration` (multimodal), which is incompatible with vLLM's standard text serving and with `AutoModelForCausalLM`. Use text-only models with `ForCausalLM` architectures:
+Models must use `ForCausalLM` architectures for vLLM text serving. Multimodal architectures like `Gemma3ForConditionalGeneration` are incompatible.
 
 | Model | Architecture | vLLM Support |
 |---|---|---|
+| `opensynthesis/Qwen3-14B-heretic` | `Qwen3ForCausalLM` | Works |
 | `p-e-w/Qwen3-8B-heretic` | `Qwen3ForCausalLM` | Works |
 | `p-e-w/Llama-3.1-8B-Instruct-heretic` | `LlamaForCausalLM` | Works |
 | `p-e-w/gemma-3-12b-it-heretic` | `Gemma3ForConditionalGeneration` | Does not work |
+
+### Qwen3 thinking mode must be disabled
+
+Qwen3 models include a `<think>` reasoning mode that produces chain-of-thought preamble before the actual response. For synthesis output, this is unwanted. Disable it by passing `chat_template_kwargs: {"enable_thinking": false}` in the API request. The synthesis client (`client.py`) does this automatically.
+
+### Context window sizing
+
+The `--max-model-len` flag controls how much of the model's native context window vLLM allocates. Larger values use more VRAM. Qwen3-14B supports 128K natively, but 32K is sufficient for 20 retrieved chunks and leaves room for output:
+
+| max-model-len | VRAM overhead | Retrieval chunks |
+|---|---|---|
+| 8192 | Low | 5 (too few for dense synthesis) |
+| 32768 | Moderate | 20 (recommended) |
+| 65536 | High | 40+ (diminishing returns) |
+
+If vLLM fails to start with OOM, reduce `--max-model-len` before reducing `--gpu-memory-utilization`.
 
 ### transformers / vLLM version coupling
 
@@ -143,17 +138,22 @@ vLLM pins specific transformers versions. Do not independently upgrade or downgr
 
 ## Model Selection
 
-### Pre-ablated models (recommended for quick start)
+### Recommended model
 
-These are publicly available on HuggingFace, processed with [Heretic](https://github.com/p-e-w/heretic):
+| Model | Params | VRAM (fp16) | Context | GPU | Cost/hr |
+|---|---|---|---|---|---|
+| **`opensynthesis/Qwen3-14B-heretic`** | 14B | ~28GB | 32K | A40 48GB | ~$0.40 |
+
+This is the project's own ablated model (3/100 refusals, KL ~5e-8). Qwen3-14B is a strong reasoner with good citation-following behavior and sufficient context for dense synthesis.
+
+### Other compatible models
+
+These third-party pre-ablated models also work with vLLM but have smaller context windows:
 
 | Model | Params | VRAM (fp16) | GPU | Cost/hr |
 |---|---|---|---|---|
 | `p-e-w/Qwen3-8B-heretic` | 8B | ~16GB | RTX 4090 | ~$0.59 |
 | `p-e-w/Llama-3.1-8B-Instruct-heretic` | 8B | ~16GB | RTX 4090 | ~$0.59 |
-| `p-e-w/gpt-oss-20b-heretic-v3` | 20B | ~40GB | A100 40GB | ~$1.64 |
-
-For research synthesis, `Qwen3-8B-heretic` offers the best quality-to-cost ratio. Qwen3 is a strong reasoner with good citation-following behavior.
 
 ---
 
@@ -170,18 +170,20 @@ Heretic implements directional ablation (Arditi et al., 2024). For each transfor
 ```bash
 pip install heretic-llm
 
-# Run on a RunPod GPU pod (A100 recommended for 14B+ models)
-heretic Qwen/Qwen3-8B-Instruct
+# Run on a RunPod GPU pod (A40 or A100 recommended for 14B)
+heretic Qwen/Qwen3-14B
 ```
 
-Push to HuggingFace when prompted. Use a **private** repository.
+Heretic runs 200 Optuna TPE trials, optimizing ablation parameters to minimize both refusal rate and KL divergence. Save the merged model when prompted.
+
+Note: Qwen3 dropped the `-Instruct` suffix. `Qwen/Qwen3-14B` IS the instruct-tuned model.
 
 ### Hardware requirements
 
 | Model | Min VRAM | Recommended | Est. time | Est. cost |
 |---|---|---|---|---|
 | Qwen3-8B | 16GB | RTX 4090 | ~1 hr | ~$0.60 |
-| Qwen3-14B | 28GB | A100 40GB | ~1.5 hrs | ~$2.50 |
+| Qwen3-14B | 28GB | A40 48GB | ~50 min | ~$0.35 |
 | Qwen3-32B | 64GB | A100 80GB | ~3 hrs | ~$7.50 |
 
 ---
@@ -200,12 +202,32 @@ The built image is at `${DOCKERHUB_USERNAME}/open-synthesis-handler:latest`.
 
 ---
 
-## Using the Synthesis Client
+## Connecting from Your Local Machine
+
+### Option A: SSH tunnel (recommended)
+
+RunPod's HTTP proxy for port 8000 is unreliable. SSH tunneling provides a direct, stable connection:
 
 ```bash
-# Set environment variables
-export RUNPOD_POD_ID="your-pod-id"
+# Set up SSH tunnel (runs in background)
+ssh -i ~/.ssh/runpod_ed25519 -f -N -L 8000:localhost:8000 -p <SSH_PORT> root@<POD_IP>
 
+# Tell the client to use localhost
+export RUNPOD_BASE_URL="http://localhost:8000"
+```
+
+### Option B: RunPod proxy
+
+If port 8000/http was exposed when creating the pod:
+
+```bash
+export RUNPOD_POD_ID="your-pod-id"
+# Client connects to https://{POD_ID}-8000.proxy.runpod.net
+```
+
+### Running the pipeline
+
+```bash
 # Ingest data
 open-synthesis ingest "psilocybin depression" --domain psychopharm --sources semantic_scholar,pubmed
 
@@ -236,11 +258,12 @@ embedding_model: "all-MiniLM-L6-v2"
 
 | GPU | Cost/hr | Good for |
 |---|---|---|
+| A40 48GB | ~$0.40 | 14B models at fp16 (recommended) |
 | RTX 4090 (24GB) | ~$0.59 | 8B models at fp16 |
 | A100 40GB | ~$1.64 | 14-20B models |
 | A100 80GB | ~$2.49 | 32B+ models |
 
-A full synthesis session (corpus ingestion + 10 synthesis outputs) on Qwen3-8B takes ~30 minutes of GPU time, costing ~$0.30.
+A full synthesis session (corpus ingestion + 10 synthesis outputs) on Qwen3-14B takes ~30 minutes of GPU time, costing ~$0.20 on an A40.
 
 **Cost management:** Stop the pod when not in use. The volume persists (model weights cached), so restarts only take ~60 seconds for model loading.
 

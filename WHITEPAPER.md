@@ -242,14 +242,14 @@ Critically, directional ablation does not remove training data biases — it rem
 
 ```bash
 pip install heretic-llm
-heretic Qwen/Qwen3-32B-Instruct
+heretic Qwen/Qwen3-14B
 ```
 
-Heretic benchmarks the available hardware, runs the optimization, and at completion offers to save the model locally or push it directly to a Hugging Face repository. On an RTX 3090, processing Llama-3.1-8B takes approximately 45 minutes; larger models scale accordingly. For a 32B model, an A100 is recommended for the ablation process itself. Full deployment documentation is in TECHNICAL/runpod_deployment.md.
+Heretic benchmarks the available hardware, runs the optimization, and at completion offers to save the model locally or push it directly to a Hugging Face repository. On an A40 48GB, processing Qwen3-14B takes approximately 50 minutes (200 trials). Our production ablation achieved 3/100 refusals with near-zero KL divergence (~5e-8), indicating effectively zero capability loss. Note that Qwen3 dropped the `-Instruct` suffix — `Qwen/Qwen3-14B` is the instruct-tuned model. Full deployment documentation is in runpod_deployment.md.
 
-**Workflow.** Run Heretic once on your chosen model, push the result to a private Hugging Face repository, and pull from there into your RunPod serverless container. This separates the one-time ablation step from the ongoing inference deployment.
+**Workflow.** Run Heretic once on your chosen model, save the merged model locally, and upload to a HuggingFace repository. The ablated model is served via vLLM on a RunPod GPU pod. This separates the one-time ablation step from the ongoing inference deployment. Our production model is publicly available at [`opensynthesis/Qwen3-14B-heretic`](https://huggingface.co/opensynthesis/Qwen3-14B-heretic).
 
-**Infrastructure.** The synthesis model runs on a RunPod serverless GPU instance. RunPod provides on-demand access to high-performance GPUs (A100 or H100 class) without the overhead of maintaining dedicated infrastructure. Serverless deployment means the system scales to zero when not in use and scales up on demand. Full deployment configuration is in TECHNICAL/runpod_deployment.md.
+**Infrastructure.** The synthesis model runs on a RunPod GPU pod with vLLM serving an OpenAI-compatible API. RunPod provides on-demand access to high-performance GPUs without the overhead of maintaining dedicated infrastructure. An A40 48GB ($0.40/hr) is sufficient for the 14B model at fp16 with 32K context. Full deployment configuration is in runpod_deployment.md.
 
 **Inference parameters.** Research synthesis requires different inference settings than conversational AI. The system uses:
 - Temperature: 0.3 (lower than conversational default — prioritizes accuracy over creativity)

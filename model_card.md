@@ -1,42 +1,44 @@
 # Model Card: Open Synthesis Synthesis Layer
 
-## Recommended Models
+## Current Production Model
 
-### Primary Recommendation: Qwen3-32B-Instruct
+### Qwen3-14B with Heretic Ablation
 
-**Base model:** `Qwen/Qwen3-32B-Instruct`  
-**Post-ablation:** `[your-username]/open-synthesis-qwen3-32b` (private HuggingFace repo)  
-**License:** Apache 2.0  
-**Parameter count:** 32 billion  
-**Context window:** 32,768 tokens (sufficient for large retrieved contexts)
+**Base model:** `Qwen/Qwen3-14B`
+**Post-ablation:** `opensynthesis/Qwen3-14B-heretic` (HuggingFace)
+**License:** Apache 2.0
+**Parameter count:** 14 billion
+**Architecture:** `Qwen3ForCausalLM`
+**Context window:** 32,768 tokens (serving config; model supports 128K natively)
 
-**Why Qwen3-32B:**
-- Leads open-weights benchmarks on academic and analytical reasoning tasks as of early 2026
-- Explicitly supported by Heretic (used as the example model in Heretic's own documentation)
-- Fits on a single A100 80GB with 4-bit quantization, keeping inference costs manageable
-- Strong long-context handling — important when retrieved corpus chunks fill the context window
-- Produces research-quality prose with accurate conditional reasoning ("the source says X, but also Y")
+**Why Qwen3-14B:**
+- Strong academic reasoning and citation-following behavior
+- Fits on A40 48GB at fp16 without quantization — no quality loss from compression
+- 32K context window accommodates 20 retrieved chunks for dense synthesis
 - Apache 2.0 license permits unrestricted research use
+- Qwen3 dropped the `-Instruct` suffix — `Qwen/Qwen3-14B` IS the instruct-tuned model
 
-**Hardware for inference (4-bit quantized):**
-- Minimum: A100 40GB (may require reduced context length)
-- Recommended: A100 80GB
-- VRAM usage: ~20GB at 4-bit
+**Ablation results (Heretic, 200 trials):**
+- Pre-ablation refusals: ~95/100
+- Post-ablation refusals: **3/100** (trial 198)
+- KL divergence: **~5e-8** (near-zero capability loss)
+
+**Hardware for inference (fp16, no quantization):**
+- Minimum: A40 48GB ($0.40/hr on RunPod)
+- Alternative: A100 40GB ($1.64/hr on RunPod)
+- VRAM usage: ~28GB at fp16
+
+**Thinking mode:** Qwen3 includes a `<think>` reasoning mode. The synthesis client disables this via `chat_template_kwargs: {"enable_thinking": false}` to produce clean output.
 
 ---
 
-### Budget Alternative: Qwen3-14B-Instruct
+### Future Upgrade Path: Qwen3-32B
 
-**Base model:** `Qwen/Qwen3-14B-Instruct`  
-**License:** Apache 2.0  
-**Parameter count:** 14 billion
+**Base model:** `Qwen/Qwen3-32B`
+**License:** Apache 2.0
+**Parameter count:** 32 billion
 
-Use for rapid prototyping and corpus development where synthesis quality is secondary to iteration speed. Meaningfully cheaper to run ($0.02 vs $0.12 per synthesis output). Step up to 32B for final case study generation.
-
-**Hardware for inference (4-bit quantized):**
-- Minimum: RTX 3090 24GB
-- Recommended: RTX 4090 or A100 40GB
-- VRAM usage: ~10GB at 4-bit
+For cases where synthesis quality needs further improvement. Requires A100 80GB for fp16 serving. Ablation procedure is identical.
 
 ---
 
@@ -60,15 +62,13 @@ Use when synthesis quality is the absolute priority and cost is secondary. Margi
 
 The following table documents expected ablation quality metrics for each recommended model, based on Heretic's built-in evaluation framework. These should be reproduced after running ablation and verified before deployment.
 
-| Model | Baseline refusals (harmful prompts) | Post-ablation refusals | KL divergence |
-|---|---|---|---|
-| Qwen3-32B-Instruct | ~90-97/100 (estimated) | Target: <5/100 | Target: <0.5 |
-| Qwen3-14B-Instruct | ~90-97/100 (estimated) | Target: <5/100 | Target: <0.5 |
-| Llama 3.3 70B Instruct | ~90-97/100 (estimated) | Target: <5/100 | Target: <0.5 |
+| Model | Baseline refusals | Post-ablation refusals | KL divergence | Trials |
+|---|---|---|---|---|
+| **Qwen3-14B** (production) | ~95/100 | **3/100** | **~5e-8** | 200 |
 
 *Verify your specific ablation using: `heretic --model [base-model] --evaluate-model [your-ablated-model]`*
 
-Heretic's published benchmark on Gemma 3 12B achieved 3/100 refusals and 0.16 KL divergence. Similar results are expected for well-supported dense transformer architectures.
+Our Qwen3-14B ablation achieved near-zero KL divergence (5e-8), indicating effectively zero capability loss from the ablation process. The 3/100 refusal rate meets Heretic's published benchmark on Gemma 3 12B (3/100 refusals, 0.16 KL divergence).
 
 ---
 

@@ -17,7 +17,7 @@ class RunPodClient:
     or a custom base URL (e.g. http://localhost:8000 via SSH tunnel).
     """
 
-    MAX_CONTEXT_LEN = 8192  # Must match vLLM --max-model-len
+    MAX_CONTEXT_LEN = 32768  # Must match vLLM --max-model-len
 
     def __init__(self, settings: RunPodSettings) -> None:
         self.pod_id = settings.pod_id
@@ -78,6 +78,7 @@ class RunPodClient:
                 "max_tokens": max_tokens,
                 "top_p": 0.9,
                 "repetition_penalty": 1.1,
+                "chat_template_kwargs": {"enable_thinking": False},
             },
         )
         if resp.status_code != 200:

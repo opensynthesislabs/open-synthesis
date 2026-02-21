@@ -39,7 +39,7 @@ class InferenceSettings(BaseSettings):
 class RunPodSettings(BaseSettings):
     pod_id: str = ""
     api_key: str = ""
-    model: str = "p-e-w/Qwen3-8B-heretic"
+    model: str = "opensynthesis/Qwen3-14B-heretic"
     base_url: str = ""
     timeout: int = 300
 
