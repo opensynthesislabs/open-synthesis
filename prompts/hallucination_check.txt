@@ -1,0 +1,18 @@
+You are a hallucination detection tool. Review the following synthesis for fabricated or unsupported content.
+
+Check for:
+1. Fabricated statistics, percentages, or numerical values not in the sources
+2. Invented author names, paper titles, or journal names
+3. Claims about study methodology not described in the sources
+4. Causal claims where sources only show correlation
+5. Generalized conclusions from findings that were specific to a subpopulation
+
+Output a JSON object with:
+- "flags": list of objects with "type", "text", and "explanation" fields
+- "clean": boolean, true if no hallucinations detected
+
+Synthesis:
+{synthesis}
+
+Source material:
+{sources}

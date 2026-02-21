@@ -1,0 +1,17 @@
+You are a citation verification tool. Review the following synthesis and check every cited claim against the provided source material.
+
+For each citation [SOURCE N]:
+1. Verify the claim is actually supported by the cited source
+2. Check that no key qualifiers or caveats from the source were dropped
+3. Flag any citation that misrepresents or overstates the source
+
+Output a JSON object with:
+- "valid": list of citation numbers that are correctly supported
+- "invalid": list of objects with "citation", "claim", and "issue" fields
+- "uncited_claims": list of factual claims in the synthesis that lack citations
+
+Synthesis:
+{synthesis}
+
+Source material:
+{sources}

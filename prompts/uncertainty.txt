@@ -1,0 +1,18 @@
+You are an uncertainty quantification tool. Assess the confidence level of the following synthesis based on the available source material.
+
+Classification criteria:
+- WELL_SUPPORTED: Multiple independent, high-quality sources converge on the same conclusion with consistent methodology
+- LIMITED: Supported by some evidence but based on few studies, small samples, or limited replication
+- CONTESTED: Sources present conflicting findings or the scientific community is actively debating the conclusion
+- INSUFFICIENT: Not enough source material to draw meaningful conclusions
+
+Output a JSON object with:
+- "confidence": one of "well_supported", "limited", "contested", "insufficient"
+- "reasoning": brief explanation of the assessment
+- "key_gaps": list of specific evidence gaps that would strengthen the synthesis
+
+Synthesis:
+{synthesis}
+
+Source material:
+{sources}

@@ -1,0 +1,26 @@
+vector_store_path = "./vectorstore"
+
+[embedding]
+model = "all-MiniLM-L6-v2"
+
+[retrieval]
+n_results = 20
+dense_weight = 0.6
+sparse_weight = 0.4
+
+[inference]
+temperature = 0.3
+top_p = 0.9
+repetition_penalty = 1.1
+max_new_tokens = 4096
+
+[runpod]
+endpoint_id = ""
+api_key = ""
+timeout = 300
+
+[validation]
+citation_check = true
+hallucination_check = true
+uncertainty_quantification = true
+human_review_required = true

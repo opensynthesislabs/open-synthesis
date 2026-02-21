@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "open-synthesis"
+version = "0.1.0"
+description = "RAG pipeline for synthesizing peer-reviewed scientific literature using open-source LLMs with directional ablation"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    # CLI
+    "typer>=0.15",
+    "rich>=13.0",
+    # Config
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    # HTTP
+    "httpx>=0.27",
+    # Vector store
+    "chromadb>=0.5",
+    # Embeddings
+    "sentence-transformers>=3.0",
+    # BM25
+    "rank-bm25>=0.2",
+    # Data source helpers
+    "arxiv>=2.0",
+    "habanero>=1.2",
+    "census>=0.8",
+    "fredapi>=0.5",
+    "ckanapi>=4.7",
+    "sdmx1>=2.14",
+    # RunPod client
+    "runpod>=1.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "respx>=0.22",
+]
+
+[project.scripts]
+open-synthesis = "open_synthesis.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/open_synthesis"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

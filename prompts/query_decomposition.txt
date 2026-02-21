@@ -1,0 +1,5 @@
+Decompose the following research question into 2-4 focused sub-queries optimized for academic database search. Each sub-query should target a specific aspect of the question using relevant technical terminology.
+
+Output one sub-query per line, no numbering or bullets.
+
+Research question: {question}
