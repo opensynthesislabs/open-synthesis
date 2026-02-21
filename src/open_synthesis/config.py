@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -70,16 +71,24 @@ def load_settings(config_path: Path | None = None) -> Settings:
     data = _load_toml(path)
 
     kwargs: dict[str, Any] = {}
-    for section in ("embedding", "retrieval", "inference", "runpod", "validation"):
-        if section in data:
-            cls = {
-                "embedding": EmbeddingSettings,
-                "retrieval": RetrievalSettings,
-                "inference": InferenceSettings,
-                "runpod": RunPodSettings,
-                "validation": ValidationSettings,
-            }[section]
-            kwargs[section] = cls(**data[section])
+    section_classes = {
+        "embedding": EmbeddingSettings,
+        "retrieval": RetrievalSettings,
+        "inference": InferenceSettings,
+        "runpod": RunPodSettings,
+        "validation": ValidationSettings,
+    }
+    for section, cls in section_classes.items():
+        toml_vals = data.get(section, {})
+        # Remove TOML keys that have env var overrides, so Pydantic
+        # picks up the env var instead (explicit kwargs beat env vars).
+        prefix = cls.model_config.get("env_prefix", "") or ""
+        if prefix:
+            toml_vals = {
+                k: v for k, v in toml_vals.items()
+                if f"{prefix}{k}".upper() not in os.environ
+            }
+        kwargs[section] = cls(**toml_vals)
 
     if "vector_store_path" in data:
         kwargs["vector_store_path"] = data["vector_store_path"]
