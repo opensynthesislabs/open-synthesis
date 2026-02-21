@@ -34,7 +34,7 @@ class InferenceSettings(BaseSettings):
     temperature: float = 0.3
     top_p: float = 0.9
     repetition_penalty: float = 1.1
-    max_new_tokens: int = 4096
+    max_new_tokens: int = 16384
 
 
 class RunPodSettings(BaseSettings):

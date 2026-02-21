@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Heritability of Intelligence — Open Synthesis</title>
+  <meta name="description" content="Comprehensive literature review on the heritability of intelligence, covering twin studies, GWAS findings, and gene-environment interactions.">
+  <meta property="og:title" content="Heritability of Intelligence — Open Synthesis">
+  <meta property="og:description" content="Multi-section synthesis of peer-reviewed evidence on the heritability of intelligence.">
+  <meta property="og:url" content="https://opensynthesis.dev/case-study-heritability.html">
+  <meta property="og:type" content="article">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <nav class="case-study-nav">
+    <div class="container">
+      <a href="/" class="nav-home">Open Synthesis</a>
+      <span class="nav-sep">/</span>
+      <span class="nav-current">Case Studies</span>
+    </div>
+  </nav>
+
+  <article class="case-study-article">
+    <div class="container">
+
+      <header class="article-header">
+        <div class="case-study-tag">behavioral genetics</div>
+        <h1>Heritability of Intelligence</h1>
+        <p class="article-meta">
+          <span>Model: <a href="https://huggingface.co/opensynthesis/Qwen3-14B-heretic">Qwen3-14B-heretic</a></span>
+          <span>Sources: Semantic Scholar, PubMed</span>
+          <span>Date: 2026-02-21</span>
+          <span>Pipeline: Multi-section synthesis</span>
+        </p>
+        <p class="article-query">"What is the current scientific evidence on the heritability of intelligence? Summarize the key twin studies, GWAS findings, and the interaction between genetic and environmental factors."</p>
+      </header>
+
+      <section class="article-section">
+        <h2>Historical Foundations and Methodological Framework</h2>
+        <p>The scientific study of intelligence heritability dates to Francis Galton's 1869 <em>Hereditary Genius</em>, which first systematically documented the familial clustering of exceptional cognitive ability. However, the modern quantitative genetics framework for partitioning phenotypic variance into genetic and environmental components emerged from the classical twin design developed throughout the twentieth century. This framework decomposes observed variation in a trait into additive genetic (A), shared environmental (C), and non-shared environmental (E) components, commonly referred to as the ACE model [SOURCE 1].</p>
+        <p>The classical twin design compares the resemblance of monozygotic (MZ) twins, who share virtually 100% of their segregating DNA, with dizygotic (DZ) twins, who share approximately 50%. Under the equal environments assumption — that MZ and DZ twins are equally exposed to trait-relevant environmental influences — greater MZ than DZ similarity implies genetic influence [SOURCE 5]. Heritability (h²) is estimated as twice the difference between MZ and DZ correlations, while shared environment (c²) is estimated as the MZ correlation minus heritability.</p>
+        <p>This methodology has been both enormously productive and persistently contested. Critics have challenged the equal environments assumption, noting that MZ twins may be treated more similarly than DZ twins, potentially inflating heritability estimates [SOURCE 1]. However, studies directly testing this assumption — for instance by examining twins whose zygosity was misclassified by their parents — have generally found that the equal environments assumption holds for cognitive traits [SOURCE 5].</p>
+        <p>Additional methodological approaches have supplemented the twin design. Adoption studies, which compare adoptees with their biological and adoptive parents, provide an independent estimate of genetic and environmental contributions. Family studies using siblings, half-siblings, and extended pedigrees offer further triangulation. More recently, molecular genetic methods — particularly genome-wide association studies (GWAS) and the estimation of SNP-based heritability — have provided a direct, DNA-based complement to the twin literature [SOURCE 10].</p>
+        <p>Each methodology carries distinct assumptions and limitations. The convergence of findings across these methodologically independent approaches strengthens confidence in the overall conclusion that intelligence is substantially heritable.</p>
+      </section>
+
+      <section class="article-section">
+        <h2>Twin Study Evidence: Magnitude and Developmental Trajectory</h2>
+        <p>The corpus of twin studies on intelligence is among the largest in behavioral genetics, spanning thousands of twin pairs across dozens of countries. Meta-analytic summaries consistently place the heritability of general cognitive ability (g) between 50% and 80% in Western populations, with the precise estimate depending on the age of the sample, the cognitive measure used, and the population studied [SOURCE 5].</p>
+        <p>A landmark longitudinal study of 483 same-sex twin pairs assessed at ages 1, 2, 3, 4, 7, 10, and 16 revealed a systematic developmental pattern: the influence of shared environment decreased from substantial in early childhood to near zero by adolescence, while heritability increased correspondingly [SOURCE 5]. At age 1, shared environment accounted for approximately 40% of variance and heritability for approximately 30%. By age 16, heritability had risen to approximately 80% and shared environment had declined to near zero.</p>
+        <p>This pattern — increasing heritability and decreasing shared environmental influence across development — has been replicated in multiple independent samples and is one of the most robust findings in behavioral genetics. Corroborating this developmental trajectory, a study of 209 twin pairs assessed at ages 5, 7, 10, and 12 found significant heritabilities at all ages, with genetic influences being the primary driver of continuity in general cognitive ability across time [SOURCE 4].</p>
+        <p>The increasing heritability of intelligence with age, sometimes called the Wilson effect, appears paradoxical at first glance. The predominant explanation invokes gene-environment correlation: as individuals gain autonomy, they increasingly select, modify, and create environments correlated with their genetic predispositions [SOURCE 5]. A child with a genetic propensity for high cognitive ability may seek out intellectually stimulating environments, thereby amplifying genetic differences over time.</p>
+        <p>A study of 11,000 children (including 749 twin pairs) from the Adolescent Brain Cognitive Development (ABCD) Study extended these findings by examining the relationship between executive functions (EFs) and IQ in middle childhood [SOURCE 2]. The genetic correlation between EFs and IQ was close to 1.0, indicating that the genetic factors influencing EFs and IQ are essentially the same at this developmental stage.</p>
+        <p>Cross-cultural replication provides further confidence. A study of 7-year-old Dutch twin pairs confirmed substantial heritability of intelligence as assessed by psychometric IQ tests, and additionally found that intelligence correlated negatively with childhood psychopathology, with the correlation primarily explained by common genetic factors [SOURCE 3].</p>
+      </section>
+
+      <section class="article-section">
+        <h2>Genome-Wide Association Studies and Molecular Architecture</h2>
+        <p>The transition from twin-based heritability estimates to molecular genetic investigations represents one of the most significant developments in the field. Early candidate gene studies produced results that largely failed to replicate, a pattern now understood to reflect insufficient statistical power [SOURCE 10].</p>
+        <p>The advent of GWAS enabled hypothesis-free scans of millions of common genetic variants simultaneously. Studies with sample sizes approaching one million have identified over 200 independent loci associated with intelligence, collectively explaining approximately 5–10% of phenotypic variance [SOURCE 10].</p>
+        <p>The discrepancy between twin-based heritability estimates (50–80%) and GWAS-based estimates (5–10%) constitutes the "missing heritability" problem. SNP-based heritability estimates using all measured common variants account for approximately 20–30% of variance, narrowing but not closing the gap. The remaining variance may reside in rare variants, structural variants, epistasis, or epigenetic mechanisms [SOURCE 10].</p>
+        <p>A genome-wide association study found that polygenic scores (PGS) for intelligence are significantly associated with general IQ, along with epigenetic modifications of the DRD2 gene, gray matter density in the striatum, and functional striatal activation during reward processing [SOURCE 10]. Another study integrating neuroimaging and genetic data found that the covariance between cortical thickness and IQ is nearly entirely genetically mediated, with shared genetic factors driving the relationship in the developing brain [SOURCE 7].</p>
+        <p>The genetic architecture of intelligence is characterized by extreme polygenicity — thousands of causal variants, each contributing a tiny fraction of variance. Functional annotation reveals enrichment in genes expressed in the brain, particularly in the cortex and during prenatal development, implicating pathways involved in neurogenesis, synaptic function, and signal transduction [SOURCE 10].</p>
+      </section>
+
+      <section class="article-section">
+        <h2>Gene-Environment Interactions and Socioeconomic Moderation</h2>
+        <p>The Scarr-Rowe hypothesis predicts that heritability of intelligence should be higher in more advantaged environments, where environmental constraints on cognitive development are relaxed. Several US twin studies have reported supporting evidence: heritability of IQ is higher in high-SES families, while shared environmental influence is larger in low-SES families [SOURCE 1].</p>
+        <p>However, this interaction has not been consistently replicated outside the United States. European studies, conducted in countries with more comprehensive social safety nets, have frequently failed to find a significant SES-heritability interaction [SOURCE 1]. This geographic pattern suggests that the interaction may reflect the degree of environmental inequality rather than a universal biological property.</p>
+        <p>A study of 7-year-old children found that common environmental influences on negative affect are amplified for children with a lower IQ-PGS, indicating a genotype-environment interaction [SOURCE 9]. The heritability of reading disability has also been shown to vary as a function of IQ, with higher heritability estimates in children with higher IQ scores [SOURCE 8].</p>
+        <p>A study of white matter microstructure found that genetic influences on fiber integrity vary with age, sex, SES, and IQ, with higher heritability in those with above-average IQ [SOURCE 13]. These findings collectively highlight the importance of moving beyond simple "nature vs. nurture" dichotomies. The heritability of intelligence is not a fixed biological constant but a population-level statistic that can change across environments, developmental stages, and historical periods.</p>
+      </section>
+
+      <section class="article-section">
+        <h2>Population Differences and Cross-Cultural Considerations</h2>
+        <p>It is a fundamental principle of quantitative genetics that within-group heritability provides no direct information about the causes of between-group differences [SOURCE 1]. Two populations may each show high heritability within-group while the mean difference between them is entirely environmental in origin.</p>
+        <p>The Flynn effect — the substantial rise in IQ scores over the twentieth century, approximately 3 points per decade — provides compelling evidence for environmental malleability at the population level [SOURCE 1]. This pace is far too rapid to reflect genetic change and demonstrates that environmental factors can produce large shifts in mean intelligence within a few generations, even as individual differences within a generation remain substantially heritable.</p>
+        <p>The distinction between within-generation heritability and cross-generation malleability is critical but frequently conflated in public discourse. A trait can be highly heritable within a generation and yet highly malleable across generations when environments change systematically.</p>
+      </section>
+
+      <section class="article-section">
+        <h2>Implications, Limitations, and Open Questions</h2>
+        <p>The convergence of twin, adoption, family, and molecular genetic studies establishes that intelligence is substantially heritable, with estimates typically ranging from 50–80% in Western populations. Several important open questions remain:</p>
+        <ul>
+          <li><strong>Missing heritability:</strong> Twin studies estimate 50–80%, identified variants explain 5–10%, and SNP-based estimates reach 20–30%. The remaining gap may reflect rare variants, structural variants, or non-additive effects [SOURCE 10].</li>
+          <li><strong>Gene-environment interplay:</strong> Gene-environment correlation and interaction complicate simple partitions of variance [SOURCE 1].</li>
+          <li><strong>Causal mechanisms:</strong> GWAS identifies associations but does not directly reveal causal pathways from DNA to cognition [SOURCE 7].</li>
+          <li><strong>Environmental interventions:</strong> High heritability does not imply immutability. Interventions such as iodine supplementation, lead abatement, and early childhood education can affect cognitive development [SOURCE 1].</li>
+        </ul>
+      </section>
+
+      <section class="article-section article-section-last">
+        <h2>Falsifiability Criteria</h2>
+        <p>Evidence that would substantially challenge this synthesis includes:</p>
+        <ul>
+          <li>Demonstration that the equal environments assumption is systematically violated for cognitive traits</li>
+          <li>Identification of variant classes that close the missing heritability gap</li>
+          <li>Consistent failure to replicate the Wilson effect in well-powered longitudinal samples</li>
+          <li>Evidence that environmental interventions produce sustained, large-magnitude (> 1 SD) IQ increases in non-deprived populations</li>
+          <li>Empirical demonstration that high within-group heritability coexists with entirely environmental between-group differences in a concrete human cognitive example</li>
+        </ul>
+      </section>
+
+      <div class="article-footer">
+        <a href="https://github.com/opensynthesislabs/open-synthesis/blob/main/case_studies/heritability_of_intelligence.md" class="btn btn-secondary">View on GitHub</a>
+        <a href="/" class="btn btn-secondary">Back to Home</a>
+      </div>
+
+    </div>
+  </article>
+
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/opensynthesislabs/open-synthesis">GitHub</a>
+        <span>&middot;</span>
+        <a href="https://huggingface.co/opensynthesis/Qwen3-14B-heretic">HuggingFace</a>
+        <span>&middot;</span>
+        <a href="https://github.com/opensynthesislabs/open-synthesis/blob/main/WHITEPAPER.md">Whitepaper</a>
+        <span>&middot;</span>
+        <a href="https://github.com/opensynthesislabs/open-synthesis/blob/main/LICENSE">MIT License</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -104,6 +104,36 @@ def validate(
 
 
 @app.command()
+def paper(
+    topic: Annotated[str, typer.Argument(help="Research topic for multi-section paper")],
+    domain: Annotated[str, typer.Option(help="Domain/collection name for vector store")] = "default",
+    sources_list: Annotated[Optional[str], typer.Option("--sources", help="Comma-separated source names (default: all)")] = None,
+    output: Annotated[Optional[Path], typer.Option(help="Save paper as markdown file")] = None,
+    config: Annotated[Optional[Path], typer.Option(help="Path to TOML config file")] = None,
+) -> None:
+    """Generate a multi-section research paper with per-section retrieval and synthesis."""
+    import asyncio
+
+    from open_synthesis.config import load_settings
+    from open_synthesis.synthesis.paper import PaperPipeline
+
+    settings = load_settings(config)
+    pipeline = PaperPipeline(settings)
+    source_names = sources_list.split(",") if sources_list else None
+
+    result = asyncio.run(pipeline.run(topic, domain, source_names=source_names))
+
+    markdown = result.to_markdown()
+
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(markdown)
+        console.print(f"\nSaved to [cyan]{output}[/cyan]")
+    else:
+        console.print(f"\n{markdown}")
+
+
+@app.command()
 def sources() -> None:
     """List available data sources and their auth requirements."""
     from open_synthesis.corpus.sources import SOURCE_REGISTRY

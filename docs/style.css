@@ -391,8 +391,141 @@ footer .footer-links {
   }
 }
 
+/* Case study article pages */
+.case-study-nav {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
+.case-study-nav .container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-home {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.nav-sep {
+  color: var(--text-muted);
+}
+
+.nav-current {
+  color: var(--text-muted);
+}
+
+.case-study-article {
+  padding: 3rem 0 4rem;
+}
+
+.case-study-article .container {
+  max-width: 760px;
+}
+
+.article-header {
+  margin-bottom: 3rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.article-header h1 {
+  font-family: var(--mono);
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  font-weight: 700;
+  margin: 0.75rem 0 1rem;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.article-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.article-meta a {
+  color: var(--accent);
+}
+
+.article-query {
+  font-size: 1rem;
+  color: var(--accent);
+  font-style: italic;
+  line-height: 1.5;
+  margin-top: 1rem;
+}
+
+.article-section {
+  margin-bottom: 2.5rem;
+}
+
+.article-section h2 {
+  font-family: var(--mono);
+  font-size: 1.2rem;
+  color: var(--green);
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.article-section h2::before {
+  content: "## ";
+  color: var(--text-muted);
+}
+
+.article-section p {
+  font-size: 0.95rem;
+  line-height: 1.75;
+  color: var(--text);
+  margin-bottom: 1rem;
+}
+
+.article-section ul {
+  margin: 0.5rem 0 1rem 1.5rem;
+  font-size: 0.95rem;
+  line-height: 1.75;
+  color: var(--text);
+}
+
+.article-section li {
+  margin-bottom: 0.5rem;
+}
+
+.article-section strong {
+  color: var(--text);
+}
+
+.article-section em {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.article-section-last {
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.article-footer {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 480px) {
   .sources-grid {
     grid-template-columns: 1fr;
+  }
+
+  .article-meta {
+    flex-direction: column;
+    gap: 0.4rem;
   }
 }
