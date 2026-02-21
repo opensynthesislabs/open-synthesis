@@ -12,11 +12,11 @@
 
 ## What This Does
 
-Open Synthesis ingests peer-reviewed papers and government data from 11 public APIs, stores them in a vector database, and synthesizes answers to research questions using an open-weights LLM that has been processed with [Heretic](https://github.com/p-e-w/heretic) to remove refusal behavior. Every output is citation-grounded, validated for hallucinations, and tagged with a confidence level.
+Open Synthesis ingests peer-reviewed papers and government data from 31 public APIs, stores them in a vector database, and synthesizes answers to research questions using an open-weights LLM that has been processed with [Heretic](https://github.com/p-e-w/heretic) to remove refusal behavior. Every output is citation-grounded, validated for hallucinations, and tagged with a confidence level.
 
 ```
 [CORPUS] → [RETRIEVAL] → [SYNTHESIS] → [VALIDATION]
- 11 APIs    hybrid BM25    RunPod        citation check
+ 31 APIs    hybrid BM25    RunPod        citation check
  ChromaDB   + dense        GPU pod       hallucination detect
  embeddings reranking      ablated LLM   uncertainty scoring
 ```
@@ -67,13 +67,16 @@ export RUNPOD_BASE_URL="http://localhost:8000"
 export RUNPOD_POD_ID="your-pod-id"
 
 open-synthesis synthesize "What is the evidence for psilocybin as a treatment for major depressive disorder?" --domain psychopharm
+
+# Generate a multi-section research paper
+open-synthesis paper "Comprehensive review of the heritability of intelligence" --domain behavioral_genetics --output paper.md
 ```
 
 ## Architecture
 
 ### Four Layers
 
-1. **Corpus** — Ingest from 11 public APIs (Semantic Scholar, PubMed, arXiv, CrossRef, CORE, OpenAlex, Census, FRED, ClinicalTrials.gov, OECD, data.gov). Documents are chunked at paragraph level and embedded with `all-MiniLM-L6-v2` into ChromaDB.
+1. **Corpus** — Ingest from 31 public APIs across literature, preprints, biomedical, chemical, and statistical data sources. Documents are chunked at paragraph level and embedded with `all-MiniLM-L6-v2` into ChromaDB.
 
 2. **Retrieval** — Hybrid search combining dense vector similarity and BM25 keyword matching via reciprocal rank fusion. Cross-encoder reranking placeholder for production use.
 
@@ -104,7 +107,7 @@ vector_store_path = "./vectorstore"
 
 [inference]
 temperature = 0.3
-max_new_tokens = 4096
+max_new_tokens = 16384
 
 [retrieval]
 n_results = 20
@@ -118,13 +121,13 @@ Or use environment variables with `RUNPOD_` prefix for RunPod settings, `OSYN_` 
 
 See [DATA_SOURCES.md](DATA_SOURCES.md) for complete API documentation, auth requirements, and rate limits.
 
-Sources requiring API keys: **CORE**, **Census**, **FRED**. All others work without authentication.
+Sources requiring API keys: **CORE**, **Census**, **FRED**, **Springer Nature**. All others work without authentication (27 of 31 need no auth).
 
 ## Project Structure
 
 ```
 src/open_synthesis/
-├── cli.py              # Typer CLI (ingest, synthesize, validate, sources)
+├── cli.py              # Typer CLI (ingest, synthesize, paper, validate, sources)
 ├── config.py           # Pydantic settings + TOML loader
 ├── types.py            # Domain models (Document, Chunk, SynthesisResult)
 ├── corpus/             # Ingestion layer
@@ -132,7 +135,7 @@ src/open_synthesis/
 │   ├── manager.py      # Orchestrator (search → dedupe → chunk → embed → store)
 │   ├── chunker.py      # Paragraph-level text splitting
 │   ├── store.py        # ChromaDB wrapper
-│   └── sources/        # 11 API integrations
+│   └── sources/        # 31 API integrations
 ├── retrieval/          # Hybrid retrieval
 │   ├── dense.py        # Sentence-transformer vector search
 │   ├── sparse.py       # BM25 keyword search
@@ -141,7 +144,8 @@ src/open_synthesis/
 ├── synthesis/          # LLM inference
 │   ├── client.py       # RunPod API client
 │   ├── prompts.py      # Template loader
-│   └── pipeline.py     # End-to-end orchestration
+│   ├── pipeline.py     # End-to-end orchestration
+│   └── paper.py        # Multi-section paper pipeline
 ├── validation/         # Output verification
 │   ├── citation.py     # Citation check parsing
 │   ├── hallucination.py # Hallucination flag parsing
@@ -161,7 +165,7 @@ pytest
 - [WHITEPAPER.md](WHITEPAPER.md) — Full technical paper (Parts I–VII)
 - [model_card.md](model_card.md) — Model selection guide and ablation metrics
 - [runpod_deployment.md](runpod_deployment.md) — Deployment pipeline with reference code
-- [DATA_SOURCES.md](DATA_SOURCES.md) — API documentation for all 11 data sources
+- [DATA_SOURCES.md](DATA_SOURCES.md) — API documentation for all 31 data sources
 - [REFERENCES.md](REFERENCES.md) — Bibliography
 
 ## License
