@@ -7,7 +7,7 @@ name = "open-synthesis"
 version = "0.1.0"
 description = "RAG pipeline for synthesizing peer-reviewed scientific literature using open-source LLMs with directional ablation"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 license = "MIT"
 dependencies = [
     # CLI

@@ -37,8 +37,10 @@ class InferenceSettings(BaseSettings):
 
 
 class RunPodSettings(BaseSettings):
-    endpoint_id: str = ""
+    pod_id: str = ""
     api_key: str = ""
+    model: str = "p-e-w/Qwen3-8B-heretic"
+    base_url: str = ""
     timeout: int = 300
 
     model_config = SettingsConfigDict(env_prefix="RUNPOD_")

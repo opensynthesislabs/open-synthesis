@@ -4,7 +4,7 @@ vector_store_path = "./vectorstore"
 model = "all-MiniLM-L6-v2"
 
 [retrieval]
-n_results = 20
+n_results = 5
 dense_weight = 0.6
 sparse_weight = 0.4
 
@@ -15,8 +15,9 @@ repetition_penalty = 1.1
 max_new_tokens = 4096
 
 [runpod]
-endpoint_id = ""
+pod_id = ""
 api_key = ""
+model = "p-e-w/Qwen3-8B-heretic"
 timeout = 300
 
 [validation]

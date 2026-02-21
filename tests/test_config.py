@@ -34,9 +34,9 @@ def test_load_missing_file():
 
 def test_env_override(monkeypatch: object, tmp_path: Path):
     import os
-    os.environ["RUNPOD_ENDPOINT_ID"] = "test-endpoint"
+    os.environ["RUNPOD_POD_ID"] = "test-pod"
     try:
         s = Settings(runpod=__import__("open_synthesis.config", fromlist=["RunPodSettings"]).RunPodSettings())
-        assert s.runpod.endpoint_id == "test-endpoint"
+        assert s.runpod.pod_id == "test-pod"
     finally:
-        os.environ.pop("RUNPOD_ENDPOINT_ID", None)
+        os.environ.pop("RUNPOD_POD_ID", None)

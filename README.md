@@ -33,9 +33,8 @@ open-synthesis sources
 # Ingest papers on a topic
 open-synthesis ingest "psilocybin depression" --domain psychopharm --sources semantic_scholar,pubmed
 
-# Run a synthesis (requires RunPod endpoint)
-export RUNPOD_ENDPOINT_ID="your-endpoint-id"
-export RUNPOD_API_KEY="your-api-key"
+# Run a synthesis (requires RunPod GPU pod running vLLM)
+export RUNPOD_POD_ID="your-pod-id"
 open-synthesis synthesize "What is the evidence for psilocybin as a treatment for major depressive disorder?" --domain psychopharm
 ```
 
