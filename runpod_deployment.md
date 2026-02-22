@@ -46,27 +46,18 @@ runpodctl create pod \
   --secureCloud
 ```
 
-### 2. Merge LoRA adapter and quantize
+### 2. Download and quantize
 
-SSH into the pod. Download the base model, apply the LoRA adapter, and quantize to AWQ:
+SSH into the pod. Download the ablated model from HuggingFace and quantize to AWQ:
 
 ```bash
-pip install vllm peft autoawq huggingface_hub
+pip install vllm autoawq huggingface_hub
 
-# Download and merge LoRA adapter into base model
-python3 -c "
-from peft import PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
+# Download the ablated model
+huggingface-cli download opensynthesis/Llama-3.1-70B-heretic-lora \
+  --local-dir /workspace/Llama-3.1-70B-heretic
 
-base = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-70B-Instruct', torch_dtype=torch.float16, device_map='auto')
-model = PeftModel.from_pretrained(base, 'opensynthesis/Llama-3.1-70B-heretic-lora')
-merged = model.merge_and_unload()
-merged.save_pretrained('/workspace/Llama-3.1-70B-heretic')
-AutoTokenizer.from_pretrained('meta-llama/Llama-3.1-70B-Instruct').save_pretrained('/workspace/Llama-3.1-70B-heretic')
-"
-
-# Quantize to AWQ 4-bit (optional, saves VRAM for larger context)
+# Quantize to AWQ 4-bit (required for 2x A100 80GB with full 128K context)
 python3 -c "
 from awq import AutoAWQForCausalLM
 from transformers import AutoTokenizer
@@ -302,3 +293,88 @@ runpodctl stop pod $POD_ID
 # Resume later
 runpodctl resume pod $POD_ID
 ```
+
+---
+
+## RunPod Platform Notes and Known Issues
+
+Practical reference for RunPod idiosyncrasies discovered during development and deployment.
+
+### API Authentication
+
+RunPod's GraphQL API (`api.runpod.io/graphql`) accepts two authentication header formats, but they are not interchangeable:
+
+- **`api-key: <key>`** — Works for public/read queries (e.g., `gpuTypes`, unauthenticated catalog queries)
+- **`Authorization: Bearer <key>`** — Required for authenticated queries (e.g., `myself { id clientBalance }`)
+- **Neither format consistently works for mutations** (pod creation, updates) via raw `curl` — use `runpodctl` CLI for pod lifecycle management instead
+
+**Recommended:** Use `runpodctl` for all pod operations. Install via Homebrew:
+
+```bash
+brew install runpod/runpodctl/runpodctl
+runpodctl config --apiKey "rpa_..."
+# Config stored at ~/.runpod/config.toml
+```
+
+### Pod Creation
+
+**GPU type IDs** are full NVIDIA product names, not display names:
+
+| Display Name | GPU Type ID |
+|---|---|
+| H100 SXM | `NVIDIA H100 80GB HBM3` |
+| A100 SXM | `NVIDIA A100-SXM4-80GB` |
+| A100 PCIe | `NVIDIA A100 80GB PCIe` |
+| RTX 4090 | `NVIDIA GeForce RTX 4090` |
+
+Other notes:
+
+- SSH must be explicitly enabled with the `--startSSH` flag in `runpodctl create pod`
+- Use `--allfields` with `runpodctl get pod` to see IP, ports, and cost details
+- Port format in output: `<public_ip>:<public_port>-><private_port> (pub|prv,tcp|http)`
+
+### Volume and Disk Layout
+
+RunPod has two separate storage areas, and conflating them is a common source of errors:
+
+| Path | Backed By | Persists Across Restarts | Notes |
+|---|---|---|---|
+| `/` (root) | Container disk (`--containerDiskSize`, default 20GB) | No | Overlay filesystem — do not store models here |
+| `/runpod` | Network volume (`--volumeSize`) | Yes | Persistent storage for models and caches |
+| `/workspace` | Container disk | No | **Not** the persistent volume — just a directory on the overlay |
+
+Key details:
+
+- Network volumes appear as `mfs#<datacenter>.runpod.net` in `df` output
+- HuggingFace cache defaults to `/root/.cache/huggingface/` (container disk) — **always override** to avoid filling the container disk:
+
+```bash
+export HF_HOME=/runpod/cache
+export TRANSFORMERS_CACHE=/runpod/cache
+```
+
+- Container disk fills up fast with model downloads. A 14B model in fp16 is ~28GB — exceeding the default 20GB container disk entirely.
+
+### SSH Access
+
+- SSH port is dynamically assigned — retrieve it from `runpodctl get pod <id> --allfields`
+- Connection format: `ssh -i ~/.ssh/runpod_ed25519 root@<public_ip> -p <public_port>`
+- The RunPod SSH key must be uploaded first via the RunPod dashboard (Settings → SSH Public Keys) or synced through `runpodctl config`
+
+### Heretic Ablation Tips
+
+When running Heretic on a RunPod pod:
+
+- Use uppercase enum values for quantization: `--quantization BNB_4BIT` (not `bnb_4bit`)
+- Always pass `--model` explicitly: `heretic --model meta-llama/Llama-3.1-70B-Instruct --quantization BNB_4BIT`
+- Heretic's interactive menu requires a proper TTY — launch it inside `screen` with `export TERM=xterm`
+- When capturing output, use `tee` not `script` to avoid terminal control character corruption
+- For 70B models in 4-bit quantization: expect ~40GB VRAM usage, batch size 128 on H100, ~200 trials takes ~2 hours
+- **Critical:** Set `HF_HOME` and `HF_TOKEN` inside the `screen` session environment, not just the parent shell — `screen` does not inherit all environment variables
+
+### Cost Management
+
+- **Check balance:** Query `myself { clientBalance }` via GraphQL with `Authorization: Bearer <key>` header
+- **Failed pods:** Pods that fail to start (e.g., insufficient balance, unavailable GPU) go to `EXITED` status immediately — check status after creation
+- **Stop pods** when not in use: `runpodctl stop pod <id>` — this preserves the network volume and stops GPU billing
+- **Remove pods** to stop all billing: `runpodctl remove pod <id>` — this deletes the network volume and all data on it

@@ -5,8 +5,8 @@
 ### Llama 3.1 70B with Heretic Ablation
 
 **Base model:** `meta-llama/Llama-3.1-70B-Instruct` (Llama 3.1 Community License)
-**LoRA adapter:** [`opensynthesis/Llama-3.1-70B-heretic-lora`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic-lora) (HuggingFace)
-**Distribution:** LoRA adapter only — users must accept the Llama 3.1 license and download the base model separately, then merge locally or load with PEFT
+**Ablated model:** [`opensynthesis/Llama-3.1-70B-heretic-lora`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic-lora) (HuggingFace)
+**Distribution:** Full ablated model. Use requires acceptance of the [Llama 3.1 Community License](https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/LICENSE).
 **Parameter count:** 70 billion
 **Architecture:** `LlamaForCausalLM`
 **Context window:** 128,000 tokens (fully usable in serving config)
@@ -49,12 +49,12 @@ The following table documents expected ablation quality metrics for each recomme
 
 | Model | Baseline refusals | Post-ablation refusals | KL divergence | Trials |
 |---|---|---|---|---|
-| **Llama 3.1 70B** (production) | ~85/100 | **8/100** | **0.0927** | 200 |
+| **Llama 3.1 70B** (production) | ~85/100 | **9/100** | **0.0938** | 200 |
 | Qwen3-14B (previous) | ~95/100 | 3/100 | ~5e-8 | 200 |
 
 *Verify your specific ablation using: `heretic --model [base-model] --evaluate-model [your-ablated-model]`*
 
-Our Llama 3.1 70B ablation (Trial 135 of 200) achieved 8/100 refusals with KL divergence of 0.0927. The Pareto frontier included trials with as few as 7 refusals (Trial 85, KL 0.2487); Trial 135 was selected for its better capability preservation. Our Qwen3-14B ablation achieved near-zero KL divergence (5e-8), indicating effectively zero capability loss.
+Our Llama 3.1 70B ablation (Trial 176 of 200) achieved 9/100 refusals with KL divergence of 0.0938. The Pareto frontier included trials with lower refusals at higher KL cost; Trial 176 was selected for its balance of refusal removal and capability preservation. Our Qwen3-14B ablation achieved near-zero KL divergence (5e-8), indicating effectively zero capability loss.
 
 ---
 
