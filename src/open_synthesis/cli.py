@@ -134,6 +134,34 @@ def paper(
 
 
 @app.command()
+def serve(
+    host: Annotated[str, typer.Option(help="Bind address")] = "0.0.0.0",
+    port: Annotated[int, typer.Option(help="Port number")] = 8765,
+    origins: Annotated[Optional[str], typer.Option(help="Comma-separated allowed origins")] = None,
+    config: Annotated[Optional[Path], typer.Option(help="Path to TOML config file")] = None,
+) -> None:
+    """Start the research chat API server."""
+    try:
+        import uvicorn
+    except ImportError:
+        console.print(
+            "[red]Missing serve dependencies.[/red] Install with:\n"
+            "  [cyan]uv sync --extra serve[/cyan]"
+        )
+        raise typer.Exit(1)
+
+    from open_synthesis.config import load_settings
+    from open_synthesis.server import create_app
+
+    settings = load_settings(config)
+    origin_list = origins.split(",") if origins else None
+    application = create_app(settings, origins=origin_list)
+
+    console.print(f"[bold]Starting server[/bold] on {host}:{port}")
+    uvicorn.run(application, host=host, port=port, log_level="info")
+
+
+@app.command()
 def sources() -> None:
     """List available data sources and their auth requirements."""
     from open_synthesis.corpus.sources import SOURCE_REGISTRY

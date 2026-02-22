@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Research — Open Synthesis</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Top bar */
+    .topbar {
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .topbar-title {
+      font-family: var(--mono);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .topbar-title span { color: var(--text-muted); }
+    .topbar-actions {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    /* Settings panel */
+    .settings-panel {
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-card);
+      display: none;
+      flex-shrink: 0;
+    }
+    .settings-panel.open { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+    .settings-field {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .settings-field input, .settings-field select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      padding: 0.35rem 0.6rem;
+      border-radius: 4px;
+      outline: none;
+    }
+    .settings-field input:focus, .settings-field select:focus {
+      border-color: var(--accent);
+    }
+    .settings-field input { width: 260px; }
+
+    /* Status indicator */
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .status-dot.connected { background: var(--green); }
+    .status-dot.error { background: #f85149; }
+
+    /* Chat area */
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .message {
+      max-width: 85%;
+      padding: 0.85rem 1.1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+    .message.user {
+      align-self: flex-end;
+      background: var(--accent);
+      color: var(--bg);
+      border-bottom-right-radius: 2px;
+    }
+    .message.assistant {
+      align-self: flex-start;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 2px;
+    }
+
+    /* Markdown in assistant messages */
+    .message.assistant h1, .message.assistant h2, .message.assistant h3 {
+      font-family: var(--mono);
+      color: var(--accent);
+      margin: 0.75rem 0 0.4rem;
+      font-size: 1rem;
+    }
+    .message.assistant h1::before, .message.assistant h2::before { content: none; }
+    .message.assistant h1 { font-size: 1.1rem; }
+    .message.assistant strong { color: var(--text); }
+    .message.assistant em { color: var(--text-muted); }
+    .message.assistant p { margin: 0.3rem 0; }
+    .message.assistant ul, .message.assistant ol { margin: 0.3rem 0 0.3rem 1.2rem; }
+    .message.assistant code {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      background: var(--bg-code);
+      padding: 0.15rem 0.35rem;
+      border-radius: 3px;
+    }
+    .message.assistant pre {
+      background: var(--bg-code);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      overflow-x: auto;
+      margin: 0.5rem 0;
+    }
+    .message.assistant pre code {
+      background: none;
+      padding: 0;
+    }
+
+    /* Source citation highlight */
+    .cite { color: var(--orange); font-weight: 600; }
+
+    /* Sources card */
+    .sources-card {
+      align-self: flex-start;
+      max-width: 85%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+    .sources-header {
+      padding: 0.6rem 1rem;
+      cursor: pointer;
+      font-family: var(--mono);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      user-select: none;
+    }
+    .sources-header:hover { color: var(--text); }
+    .sources-chevron {
+      transition: transform 0.15s;
+      font-size: 0.7rem;
+    }
+    .sources-card.open .sources-chevron { transform: rotate(90deg); }
+    .sources-body {
+      display: none;
+      padding: 0 1rem 0.6rem;
+    }
+    .sources-card.open .sources-body { display: block; }
+    .source-item {
+      padding: 0.35rem 0;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .source-item .s-title { color: var(--text); font-weight: 500; }
+    .source-item .s-score {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--green);
+    }
+
+    /* Input bar */
+    .input-bar {
+      padding: 0.75rem 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 0.75rem;
+      flex-shrink: 0;
+      background: var(--bg);
+    }
+    .input-bar textarea {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 0.9rem;
+      padding: 0.6rem 0.85rem;
+      border-radius: 6px;
+      resize: none;
+      outline: none;
+      line-height: 1.5;
+      min-height: 42px;
+      max-height: 150px;
+    }
+    .input-bar textarea:focus { border-color: var(--accent); }
+    .input-bar textarea::placeholder { color: var(--text-muted); }
+    .input-bar button {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0 1.25rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .input-bar button:hover { background: var(--accent-hover); }
+    .input-bar button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Streaming cursor */
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1em;
+      background: var(--accent);
+      animation: blink 0.8s infinite;
+      vertical-align: text-bottom;
+      margin-left: 1px;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* Welcome */
+    .welcome {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin: auto;
+      max-width: 500px;
+    }
+    .welcome h2 {
+      font-family: var(--mono);
+      color: var(--text);
+      font-size: 1.1rem;
+      margin-bottom: 0.75rem;
+    }
+    .welcome h2::before { content: none; }
+    .welcome p { margin-bottom: 0.5rem; }
+    .welcome code {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      background: var(--bg-code);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+    }
+
+    /* Toggle button */
+    .toggle-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .toggle-btn:hover { border-color: var(--text-muted); color: var(--text); }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-title"><span>open-synthesis /</span> research</div>
+    <div class="topbar-actions">
+      <span class="status-dot" id="statusDot" title="Disconnected"></span>
+      <button class="toggle-btn" id="settingsToggle">settings</button>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-field">
+      <label for="apiUrl">API</label>
+      <input type="text" id="apiUrl" value="http://localhost:8765" placeholder="http://localhost:8765">
+    </div>
+    <div class="settings-field">
+      <label for="domainSelect">Domain</label>
+      <select id="domainSelect"><option value="default">default</option></select>
+    </div>
+    <button class="toggle-btn" id="refreshDomains">refresh</button>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat-area" id="chatArea">
+    <div class="welcome">
+      <h2>Research Interface</h2>
+      <p>Ask a research question to synthesize from the indexed corpus.</p>
+      <p>Requires <code>open-synthesis serve</code> running locally.</p>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-bar">
+    <textarea id="questionInput" placeholder="Ask a research question..." rows="1"></textarea>
+    <button id="sendBtn" disabled>Send</button>
+  </div>
+
+<script>
+(function() {
+  const apiUrlInput = document.getElementById('apiUrl');
+  const domainSelect = document.getElementById('domainSelect');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const settingsToggle = document.getElementById('settingsToggle');
+  const refreshBtn = document.getElementById('refreshDomains');
+  const chatArea = document.getElementById('chatArea');
+  const questionInput = document.getElementById('questionInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const statusDot = document.getElementById('statusDot');
+
+  let busy = false;
+
+  // Persist settings
+  const saved = localStorage.getItem('osyn_settings');
+  if (saved) {
+    try {
+      const s = JSON.parse(saved);
+      if (s.apiUrl) apiUrlInput.value = s.apiUrl;
+      if (s.domain) domainSelect.value = s.domain;
+    } catch {}
+  }
+  function saveSettings() {
+    localStorage.setItem('osyn_settings', JSON.stringify({
+      apiUrl: apiUrlInput.value,
+      domain: domainSelect.value,
+    }));
+  }
+  apiUrlInput.addEventListener('change', saveSettings);
+  domainSelect.addEventListener('change', saveSettings);
+
+  // Settings toggle
+  settingsToggle.addEventListener('click', () => {
+    settingsPanel.classList.toggle('open');
+  });
+
+  // Auto-resize textarea
+  questionInput.addEventListener('input', () => {
+    questionInput.style.height = 'auto';
+    questionInput.style.height = Math.min(questionInput.scrollHeight, 150) + 'px';
+    sendBtn.disabled = !questionInput.value.trim() || busy;
+  });
+
+  // Enter to send
+  questionInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!sendBtn.disabled) send();
+    }
+  });
+
+  sendBtn.addEventListener('click', send);
+
+  // Health check + domain fetch
+  async function checkHealth() {
+    try {
+      const resp = await fetch(apiUrlInput.value + '/api/health');
+      if (!resp.ok) throw new Error();
+      const data = await resp.json();
+      statusDot.className = 'status-dot connected';
+      statusDot.title = 'Connected';
+      updateDomains(data.domains || []);
+      sendBtn.disabled = !questionInput.value.trim() || busy;
+    } catch {
+      statusDot.className = 'status-dot error';
+      statusDot.title = 'Disconnected';
+    }
+  }
+
+  function updateDomains(domains) {
+    const current = domainSelect.value;
+    domainSelect.innerHTML = '';
+    if (!domains.length) domains = ['default'];
+    domains.forEach(d => {
+      const opt = document.createElement('option');
+      opt.value = d; opt.textContent = d;
+      domainSelect.appendChild(opt);
+    });
+    if (domains.includes(current)) domainSelect.value = current;
+    saveSettings();
+  }
+
+  refreshBtn.addEventListener('click', checkHealth);
+  checkHealth();
+
+  // Scroll to bottom
+  function scrollBottom() {
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  // Simple markdown renderer
+  function renderMarkdown(text) {
+    // Remove <think>...</think> blocks from Qwen3 reasoning output
+    text = text.replace(/<think>[\s\S]*?<\/think>/g, '');
+
+    let html = text
+      // Code blocks
+      .replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+        '<pre><code>' + escapeHtml(code.trimEnd()) + '</code></pre>')
+      // Inline code
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      // Headers
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+      // Bold
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      // Italic
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      // Citation highlights [SOURCE N]
+      .replace(/\[SOURCE\s+(\d+)[^\]]*\]/g, '<span class="cite">[SOURCE $1]</span>')
+      // Line breaks → paragraphs
+      .replace(/\n{2,}/g, '</p><p>')
+      .replace(/\n/g, '<br>');
+    return '<p>' + html + '</p>';
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Add message to chat
+  function addMessage(role, content) {
+    // Remove welcome
+    const w = chatArea.querySelector('.welcome');
+    if (w) w.remove();
+
+    const div = document.createElement('div');
+    div.className = 'message ' + role;
+    if (role === 'user') {
+      div.textContent = content;
+    } else {
+      div.innerHTML = renderMarkdown(content);
+    }
+    chatArea.appendChild(div);
+    scrollBottom();
+    return div;
+  }
+
+  // Add sources card
+  function addSources(sources) {
+    const card = document.createElement('div');
+    card.className = 'sources-card';
+    const header = document.createElement('div');
+    header.className = 'sources-header';
+    header.innerHTML = '<span class="sources-chevron">&#9654;</span> ' + sources.length + ' sources retrieved';
+    header.addEventListener('click', () => card.classList.toggle('open'));
+
+    const body = document.createElement('div');
+    body.className = 'sources-body';
+    sources.forEach((s, i) => {
+      const item = document.createElement('div');
+      item.className = 'source-item';
+      item.innerHTML =
+        '<span class="s-title">[' + (i+1) + '] ' + escapeHtml(s.title) + '</span> ' +
+        escapeHtml(s.authors) + ' (' + escapeHtml(String(s.year)) + ') ' +
+        '<span class="s-score">' + s.score + '</span>';
+      body.appendChild(item);
+    });
+    card.appendChild(header);
+    card.appendChild(body);
+    chatArea.appendChild(card);
+    scrollBottom();
+  }
+
+  // Send question via streaming
+  async function send() {
+    const question = questionInput.value.trim();
+    if (!question || busy) return;
+
+    busy = true;
+    sendBtn.disabled = true;
+    questionInput.value = '';
+    questionInput.style.height = 'auto';
+
+    addMessage('user', question);
+
+    const url = apiUrlInput.value + '/api/chat/stream';
+    const domain = domainSelect.value;
+
+    // Create assistant message placeholder
+    const assistantDiv = addMessage('assistant', '');
+    assistantDiv.innerHTML = '<span class="cursor"></span>';
+    let fullText = '';
+
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, domain }),
+      });
+
+      if (resp.status === 429) {
+        assistantDiv.innerHTML = renderMarkdown('**Server busy** — another request is in progress. Please try again shortly.');
+        busy = false;
+        sendBtn.disabled = false;
+        return;
+      }
+
+      if (!resp.ok) {
+        const text = await resp.text();
+        assistantDiv.innerHTML = renderMarkdown('**Error ' + resp.status + ':** ' + text);
+        busy = false;
+        sendBtn.disabled = false;
+        return;
+      }
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete line
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            var currentEvent = line.slice(7).trim();
+          } else if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (currentEvent === 'sources') {
+              try {
+                const sources = JSON.parse(data);
+                addSources(sources);
+              } catch {}
+            } else if (currentEvent === 'chunk') {
+              fullText += data;
+              assistantDiv.innerHTML = renderMarkdown(fullText) + '<span class="cursor"></span>';
+              scrollBottom();
+            } else if (currentEvent === 'error') {
+              fullText += '\n\n**Error:** ' + data;
+              assistantDiv.innerHTML = renderMarkdown(fullText);
+            } else if (currentEvent === 'done') {
+              assistantDiv.innerHTML = renderMarkdown(fullText);
+            }
+          }
+        }
+      }
+
+      // Final render (in case no done event)
+      if (fullText) {
+        assistantDiv.innerHTML = renderMarkdown(fullText);
+      } else if (!assistantDiv.textContent.trim()) {
+        assistantDiv.innerHTML = renderMarkdown('*No response received.*');
+      }
+
+    } catch (err) {
+      assistantDiv.innerHTML = renderMarkdown('**Connection error:** ' + err.message);
+    }
+
+    busy = false;
+    sendBtn.disabled = !questionInput.value.trim();
+    scrollBottom();
+  }
+})();
+</script>
+</body>
+</html>

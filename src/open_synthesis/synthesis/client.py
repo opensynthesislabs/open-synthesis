@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
@@ -37,15 +39,9 @@ class RunPodClient:
             )
         return self._client
 
-    async def generate(
-        self,
-        prompt: str,
-        context: str,
-        temperature: float = 0.3,
-        max_tokens: int = 4096,
-    ) -> str:
-        """Send a chat completion request to vLLM and return the response text."""
-        messages = [
+    def _build_messages(self, prompt: str, context: str) -> list[dict[str, str]]:
+        """Build the chat messages list from prompt and context."""
+        return [
             {
                 "role": "system",
                 "content": (
@@ -57,7 +53,10 @@ class RunPodClient:
             {"role": "user", "content": prompt},
         ]
 
-        # Rough token estimate: ~4 chars per token. Reserve space for output.
+    def _clamp_max_tokens(
+        self, messages: list[dict[str, str]], max_tokens: int,
+    ) -> int:
+        """Clamp max_tokens to fit within context window."""
         input_chars = sum(len(m["content"]) for m in messages)
         estimated_input_tokens = input_chars // 3  # conservative estimate
         available_for_output = self.MAX_CONTEXT_LEN - estimated_input_tokens
@@ -66,7 +65,18 @@ class RunPodClient:
                 f"Input too long (~{estimated_input_tokens} tokens estimated). "
                 f"Reduce retrieval results or context size."
             )
-        max_tokens = min(max_tokens, available_for_output)
+        return min(max_tokens, available_for_output)
+
+    async def generate(
+        self,
+        prompt: str,
+        context: str,
+        temperature: float = 0.3,
+        max_tokens: int = 4096,
+    ) -> str:
+        """Send a chat completion request to vLLM and return the response text."""
+        messages = self._build_messages(prompt, context)
+        max_tokens = self._clamp_max_tokens(messages, max_tokens)
 
         http = await self._http()
         resp = await http.post(
@@ -86,6 +96,52 @@ class RunPodClient:
             raise RuntimeError(f"vLLM returned {resp.status_code}: {detail}")
         data = resp.json()
         return data["choices"][0]["message"]["content"]
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        context: str,
+        temperature: float = 0.3,
+        max_tokens: int = 4096,
+    ) -> AsyncIterator[str]:
+        """Stream chat completion tokens from vLLM as an async iterator."""
+        messages = self._build_messages(prompt, context)
+        max_tokens = self._clamp_max_tokens(messages, max_tokens)
+
+        http = await self._http()
+        async with http.stream(
+            "POST",
+            f"{self._base_url}/v1/chat/completions",
+            json={
+                "model": self.model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "top_p": 0.9,
+                "repetition_penalty": 1.1,
+                "stream": True,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+        ) as resp:
+            if resp.status_code != 200:
+                body = await resp.aread()
+                raise RuntimeError(
+                    f"vLLM returned {resp.status_code}: {body.decode()[:500]}"
+                )
+            async for line in resp.aiter_lines():
+                if not line.startswith("data: "):
+                    continue
+                payload = line[6:]
+                if payload.strip() == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(payload)
+                    delta = chunk["choices"][0].get("delta", {})
+                    content = delta.get("content")
+                    if content:
+                        yield content
+                except (json.JSONDecodeError, KeyError, IndexError):
+                    continue
 
     async def runsync(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Legacy-compatible interface used by the pipeline."""
