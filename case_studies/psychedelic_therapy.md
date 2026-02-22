@@ -4,7 +4,7 @@
 
 **Domain:** psychedelics
 **Sources:** Semantic Scholar, PubMed
-**Model:** opensynthesis/Qwen3-14B-heretic
+**Model:** opensynthesis/Llama-3.1-70B-heretic-AWQ
 **Date:** 2026-02-21
 **Pipeline:** Multi-section synthesis (per-section retrieval, 16K token generation)
 

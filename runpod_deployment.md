@@ -25,31 +25,25 @@ Use RunPod's pre-cached PyTorch template for instant startup. Custom Docker imag
 # Via RunPod dashboard:
 # 1. Pods → Deploy → GPU Pod
 # 2. Select "Runpod Pytorch 2.4" template
-# 3. Pick A40 48GB (~$0.40/hr) — sufficient for 14B at fp16
-# 4. Set container disk to 50GB, volume to 50GB
-# 5. Enable SSH, expose port 8000/http
+# 3. Pick 2x A100 80GB (~$2.38/hr) — required for 70B AWQ with 128K context
+# 4. Set container disk to 50GB, volume to 100GB
+# 5. Enable SSH, expose ports 8000/http and 22/tcp
 # 6. Deploy
 ```
 
-Or via API:
+Or via CLI:
 
 ```bash
-curl -s "https://api.runpod.io/graphql?api_key=$RUNPOD_API_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "query": "mutation { podFindAndDeployOnDemand(input: {
-      name: \"open-synthesis\",
-      templateId: \"runpod-torch-v240\",
-      gpuTypeId: \"NVIDIA A40\",
-      cloudType: SECURE,
-      gpuCount: 1,
-      volumeInGb: 50,
-      containerDiskInGb: 50,
-      startJupyter: true,
-      startSsh: true,
-      ports: \"8000/http,22/tcp\"
-    }) { id machineId costPerHr } }"
-  }'
+runpodctl create pod \
+  --name open-synthesis-72b \
+  --gpuType "NVIDIA A100 80GB PCIe" \
+  --gpuCount 2 \
+  --imageName "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
+  --containerDiskSize 50 \
+  --volumeSize 100 \
+  --ports "8000/http,19123/http,22/tcp" \
+  --startSSH \
+  --secureCloud
 ```
 
 ### 2. Install vLLM and start serving
@@ -60,17 +54,17 @@ SSH into the pod and run:
 # Install vLLM (includes torch, transformers, etc.)
 pip install vllm
 
-# Start vLLM with the ablated model
-python3 -m vllm.entrypoints.openai.api_server \
-  --model opensynthesis/Qwen3-14B-heretic \
-  --dtype half \
-  --max-model-len 32768 \
+# Start vLLM with the ablated + quantized model
+vllm serve opensynthesis/Llama-3.1-70B-heretic-AWQ \
+  --quantization awq \
+  --max-model-len 131072 \
+  --tensor-parallel-size 2 \
   --gpu-memory-utilization 0.90 \
   --host 0.0.0.0 \
   --port 8000
 ```
 
-First run downloads ~28GB of model weights. Subsequent starts use the cached model on the volume.
+First run downloads the AWQ-quantized model weights (~40GB). Subsequent starts use the cached model on the volume. Cold start takes ~3-5 minutes.
 
 ### 3. Test the endpoint
 
@@ -78,18 +72,17 @@ First run downloads ~28GB of model weights. Subsequent starts use the cached mod
 curl http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "opensynthesis/Qwen3-14B-heretic",
+    "model": "opensynthesis/Llama-3.1-70B-heretic-AWQ",
     "messages": [
       {"role": "system", "content": "You are a research synthesis tool. Synthesize the following retrieved source material accurately and cite sources inline.\n\n<retrieved_sources>\n[SOURCE: Open Science Collaboration (2015)]\nThe Reproducibility Project replicated 100 psychology studies. Only 36% produced significant results.\n</retrieved_sources>"},
       {"role": "user", "content": "Summarize the replication crisis."}
     ],
     "temperature": 0.3,
-    "max_tokens": 1024,
-    "chat_template_kwargs": {"enable_thinking": false}
+    "max_tokens": 1024
   }'
 ```
 
-The `chat_template_kwargs` disables Qwen3's thinking mode for clean output. The API is OpenAI-compatible. Use `https://{POD_ID}-8000.proxy.runpod.net` for external access, or SSH tunnel for reliability.
+The API is OpenAI-compatible. Use `https://{POD_ID}-8000.proxy.runpod.net` for external access, or SSH tunnel for reliability.
 
 ---
 
@@ -109,6 +102,7 @@ Models must use `ForCausalLM` architectures for vLLM text serving. Multimodal ar
 
 | Model | Architecture | vLLM Support |
 |---|---|---|
+| `opensynthesis/Llama-3.1-70B-heretic-AWQ` | `LlamaForCausalLM` | Works (production) |
 | `opensynthesis/Qwen3-14B-heretic` | `Qwen3ForCausalLM` | Works |
 | `p-e-w/Qwen3-8B-heretic` | `Qwen3ForCausalLM` | Works |
 | `p-e-w/Llama-3.1-8B-Instruct-heretic` | `LlamaForCausalLM` | Works |
@@ -116,17 +110,18 @@ Models must use `ForCausalLM` architectures for vLLM text serving. Multimodal ar
 
 ### Qwen3 thinking mode must be disabled
 
-Qwen3 models include a `<think>` reasoning mode that produces chain-of-thought preamble before the actual response. For synthesis output, this is unwanted. Disable it by passing `chat_template_kwargs: {"enable_thinking": false}` in the API request. The synthesis client (`client.py`) does this automatically.
+Qwen3 models include a `<think>` reasoning mode that produces chain-of-thought preamble before the actual response. For synthesis output, this is unwanted. Disable it by passing `chat_template_kwargs: {"enable_thinking": false}` in the API request. The synthesis client (`client.py`) does this automatically when it detects a Qwen3 model name. Llama models do not have this issue.
 
 ### Context window sizing
 
-The `--max-model-len` flag controls how much of the model's native context window vLLM allocates. Larger values use more VRAM. Qwen3-14B supports 128K natively, but 32K is sufficient for 20 retrieved chunks and leaves room for output:
+The `--max-model-len` flag controls how much of the model's native context window vLLM allocates. Larger values use more VRAM. Llama 3.1 70B supports 128K natively. With AWQ quantization on 2x A100 80GB, the full 128K context is usable:
 
 | max-model-len | VRAM overhead | Retrieval chunks |
 |---|---|---|
 | 8192 | Low | 5 (too few for dense synthesis) |
-| 32768 | Moderate | 20 (recommended) |
-| 65536 | High | 40+ (diminishing returns) |
+| 32768 | Moderate | 20 (minimum for quality synthesis) |
+| 65536 | High | 40+ |
+| 131072 | Full (requires 2x A100 80GB + AWQ) | 60+ (recommended for 70B) |
 
 If vLLM fails to start with OOM, reduce `--max-model-len` before reducing `--gpu-memory-utilization`.
 
@@ -140,20 +135,21 @@ vLLM pins specific transformers versions. Do not independently upgrade or downgr
 
 ### Recommended model
 
-| Model | Params | VRAM (fp16) | Context | GPU | Cost/hr |
+| Model | Params | Quantization | Context | GPU | Cost/hr |
 |---|---|---|---|---|---|
-| **`opensynthesis/Qwen3-14B-heretic`** | 14B | ~28GB | 32K | A40 48GB | ~$0.40 |
+| **`opensynthesis/Llama-3.1-70B-heretic-AWQ`** | 70B | AWQ 4-bit | 128K | 2x A100 80GB | ~$2.38 |
 
-This is the project's own ablated model (3/100 refusals, KL ~5e-8). Qwen3-14B is a strong reasoner with good citation-following behavior and sufficient context for dense synthesis.
+This is the project's production ablated model. Llama 3.1 70B provides strong reasoning, native 128K context, and proven Heretic compatibility. AWQ quantization enables efficient serving across two GPUs with tensor parallelism.
 
 ### Other compatible models
 
-These third-party pre-ablated models also work with vLLM but have smaller context windows:
+These models also work with vLLM:
 
-| Model | Params | VRAM (fp16) | GPU | Cost/hr |
+| Model | Params | Context | GPU | Cost/hr |
 |---|---|---|---|---|
-| `p-e-w/Qwen3-8B-heretic` | 8B | ~16GB | RTX 4090 | ~$0.59 |
-| `p-e-w/Llama-3.1-8B-Instruct-heretic` | 8B | ~16GB | RTX 4090 | ~$0.59 |
+| `opensynthesis/Qwen3-14B-heretic` | 14B | 32K | A40 48GB | ~$0.40 |
+| `p-e-w/Qwen3-8B-heretic` | 8B | 8K | RTX 4090 | ~$0.34 |
+| `p-e-w/Llama-3.1-8B-Instruct-heretic` | 8B | 8K | RTX 4090 | ~$0.34 |
 
 ---
 
@@ -170,21 +166,22 @@ Heretic implements directional ablation (Arditi et al., 2024). For each transfor
 ```bash
 pip install heretic-llm
 
-# Run on a RunPod GPU pod (A40 or A100 recommended for 14B)
+# For 72B models, use H100 SXM 80GB with bnb_4bit quantization
+heretic --model meta-llama/Llama-3.1-70B-Instruct --quantization BNB_4BIT
+
+# For 14B models, A40 48GB is sufficient
 heretic Qwen/Qwen3-14B
 ```
 
 Heretic runs 200 Optuna TPE trials, optimizing ablation parameters to minimize both refusal rate and KL divergence. Save the merged model when prompted.
 
-Note: Qwen3 dropped the `-Instruct` suffix. `Qwen/Qwen3-14B` IS the instruct-tuned model.
-
 ### Hardware requirements
 
-| Model | Min VRAM | Recommended | Est. time | Est. cost |
-|---|---|---|---|---|
-| Qwen3-8B | 16GB | RTX 4090 | ~1 hr | ~$0.60 |
-| Qwen3-14B | 28GB | A40 48GB | ~50 min | ~$0.35 |
-| Qwen3-32B | 64GB | A100 80GB | ~3 hrs | ~$7.50 |
+| Model | Min VRAM | Recommended | Quantization | Est. time | Est. cost |
+|---|---|---|---|---|---|
+| Llama 3.1 70B | 80GB | H100 SXM 80GB | bnb_4bit | ~1-3 hrs | ~$3-8 |
+| Qwen3-14B | 28GB | A40 48GB | none | ~50 min | ~$0.35 |
+| Qwen3-8B | 16GB | RTX 4090 | none | ~1 hr | ~$0.35 |
 
 ---
 
@@ -245,9 +242,12 @@ open-synthesis synthesize \
 temperature: 0.3
 top_p: 0.9
 repetition_penalty: 1.1
-max_new_tokens: 4096
+max_new_tokens: 16384
 n_retrieval_results: 20
 embedding_model: "all-MiniLM-L6-v2"
+max_model_len: 131072
+tensor_parallel_size: 2
+quantization: awq
 ```
 
 ---
@@ -258,14 +258,14 @@ embedding_model: "all-MiniLM-L6-v2"
 
 | GPU | Cost/hr | Good for |
 |---|---|---|
-| A40 48GB | ~$0.40 | 14B models at fp16 (recommended) |
-| RTX 4090 (24GB) | ~$0.59 | 8B models at fp16 |
-| A100 40GB | ~$1.64 | 14-20B models |
-| A100 80GB | ~$2.49 | 32B+ models |
+| 2x A100 80GB | ~$2.38 | 70B AWQ with 128K context (production) |
+| H100 SXM 80GB | ~$2.69 | Ablation of 70B+ models |
+| A40 48GB | ~$0.35 | 14B models at fp16 |
+| RTX 4090 (24GB) | ~$0.34 | 8B models at fp16 |
 
-A full synthesis session (corpus ingestion + 10 synthesis outputs) on Qwen3-14B takes ~30 minutes of GPU time, costing ~$0.20 on an A40.
+A full synthesis session (corpus ingestion + 10 synthesis outputs) on Llama 3.1 70B takes ~30-45 minutes of GPU time, costing ~$1.20-1.80 on 2x A100.
 
-**Cost management:** Stop the pod when not in use. The volume persists (model weights cached), so restarts only take ~60 seconds for model loading.
+**Cost management:** Stop the pod when not in use. The volume persists (model weights cached), so restarts take ~3-5 minutes for model loading. Estimated storage cost ~$7-10/mo when stopped.
 
 ```bash
 # Stop pod (keeps volume)

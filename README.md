@@ -23,26 +23,22 @@ Open Synthesis ingests peer-reviewed papers and government data from 31 public A
 
 ## Model
 
-The synthesis layer uses [`opensynthesis/Qwen3-14B-heretic`](https://huggingface.co/opensynthesis/Qwen3-14B-heretic) — Qwen3-14B with directional ablation applied via [Heretic](https://github.com/p-e-w/heretic) to remove refusal behavior on scientific topics.
+The synthesis layer uses [`opensynthesis/Llama-3.1-70B-heretic-AWQ`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic-AWQ) — Llama 3.1 70B Instruct with directional ablation applied via [Heretic](https://github.com/p-e-w/heretic) to remove refusal behavior on scientific topics, then quantized to AWQ 4-bit for efficient serving.
 
 ### Ablation Results
 
 | Metric | Value |
 |---|---|
-| Base model | `Qwen/Qwen3-14B` (Apache 2.0) |
-| Architecture | `Qwen3ForCausalLM` |
-| Parameters | 14B |
+| Base model | `meta-llama/Llama-3.1-70B-Instruct` (Llama 3.1 Community License) |
+| Architecture | `LlamaForCausalLM` |
+| Parameters | 70B (AWQ 4-bit quantized for serving) |
 | Method | Heretic directional ablation (Arditi et al., 2024) |
-| Optimization | 200 Optuna TPE trials |
-| Best trial | #198 |
-| Pre-ablation refusals | ~95/100 |
-| **Post-ablation refusals** | **3/100** |
-| **KL divergence** | **~5e-8** (near-zero capability loss) |
-| Context window | 32,768 tokens (serving) / 128K (native) |
-| VRAM usage | ~28GB at fp16 |
-| Recommended GPU | A40 48GB ($0.40/hr on RunPod) |
+| Optimization | 200 Optuna TPE trials (8/100 refusals, KL 0.0927) |
+| Context window | 128K tokens (native, fully usable) |
+| Serving | AWQ 4-bit, tensor parallel across 2x A100 80GB |
+| Recommended GPU | 2x A100 80GB ($2.38/hr on RunPod) |
 
-The near-zero KL divergence means the ablation removed refusal behavior with effectively zero degradation to the model's general reasoning, writing, or factual capabilities. The model is served via vLLM with Qwen3's thinking mode disabled (`enable_thinking: false`) for clean synthesis output.
+The previous production model was [`opensynthesis/Qwen3-14B-heretic`](https://huggingface.co/opensynthesis/Qwen3-14B-heretic) (3/100 refusals, KL ~5e-8). The upgrade to 70B provides native 128K context (vs 32K serving limit) and substantially stronger reasoning for dense, multi-source synthesis.
 
 See [model_card.md](model_card.md) for full model selection rationale and [runpod_deployment.md](runpod_deployment.md) for deployment guide.
 
@@ -86,14 +82,13 @@ open-synthesis paper "Comprehensive review of the heritability of intelligence" 
 
 ### Deployment
 
-Deploy [`opensynthesis/Qwen3-14B-heretic`](https://huggingface.co/opensynthesis/Qwen3-14B-heretic) on a RunPod GPU pod with [vLLM](https://github.com/vllm-project/vllm). No custom ablation required — the model is ready to use.
+Deploy [`opensynthesis/Llama-3.1-70B-heretic-AWQ`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic-AWQ) on a RunPod GPU pod with [vLLM](https://github.com/vllm-project/vllm). No custom ablation required — the model is ready to use.
 
 ```bash
-# On a RunPod GPU pod (A40 48GB, ~$0.40/hr):
+# On a RunPod GPU pod (2x A100 80GB, ~$2.38/hr):
 pip install vllm
-python3 -m vllm.entrypoints.openai.api_server \
-  --model opensynthesis/Qwen3-14B-heretic \
-  --dtype half --max-model-len 32768 --port 8000
+vllm serve opensynthesis/Llama-3.1-70B-heretic-AWQ \
+  --quantization awq --max-model-len 131072 --tensor-parallel-size 2
 ```
 
 See [runpod_deployment.md](runpod_deployment.md) for full setup, known issues, and model selection.

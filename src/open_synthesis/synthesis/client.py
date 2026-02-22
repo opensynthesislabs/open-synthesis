@@ -19,7 +19,7 @@ class RunPodClient:
     or a custom base URL (e.g. http://localhost:8000 via SSH tunnel).
     """
 
-    MAX_CONTEXT_LEN = 32768  # Must match vLLM --max-model-len
+    DEFAULT_MAX_CONTEXT = 131072
 
     def __init__(self, settings: RunPodSettings) -> None:
         self.pod_id = settings.pod_id
@@ -30,6 +30,7 @@ class RunPodClient:
         # Set RUNPOD_BASE_URL=http://localhost:8000 when using SSH tunnel.
         self._base_url = settings.base_url or f"https://{self.pod_id}-8000.proxy.runpod.net"
         self._client: httpx.AsyncClient | None = None
+        self._max_context_len: int | None = None
 
     async def _http(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -53,17 +54,36 @@ class RunPodClient:
             {"role": "user", "content": prompt},
         ]
 
-    def _clamp_max_tokens(
+    async def _get_max_context_len(self) -> int:
+        """Query vLLM for the model's max context length, cached after first call."""
+        if self._max_context_len is not None:
+            return self._max_context_len
+        try:
+            http = await self._http()
+            resp = await http.get(f"{self._base_url}/v1/models")
+            if resp.status_code == 200:
+                data = resp.json()
+                for model in data.get("data", []):
+                    if model.get("max_model_len"):
+                        self._max_context_len = model["max_model_len"]
+                        return self._max_context_len
+        except Exception:
+            pass
+        self._max_context_len = self.DEFAULT_MAX_CONTEXT
+        return self._max_context_len
+
+    async def _clamp_max_tokens(
         self, messages: list[dict[str, str]], max_tokens: int,
     ) -> int:
-        """Clamp max_tokens to fit within context window."""
+        """Clamp max_tokens to fit within the model's context window."""
+        max_context = await self._get_max_context_len()
         input_chars = sum(len(m["content"]) for m in messages)
         estimated_input_tokens = input_chars // 3  # conservative estimate
-        available_for_output = self.MAX_CONTEXT_LEN - estimated_input_tokens
+        available_for_output = max_context - estimated_input_tokens
         if available_for_output < 256:
             raise ValueError(
                 f"Input too long (~{estimated_input_tokens} tokens estimated). "
-                f"Reduce retrieval results or context size."
+                f"Max context is {max_context}. Reduce retrieval results or context size."
             )
         return min(max_tokens, available_for_output)
 
@@ -76,20 +96,22 @@ class RunPodClient:
     ) -> str:
         """Send a chat completion request to vLLM and return the response text."""
         messages = self._build_messages(prompt, context)
-        max_tokens = self._clamp_max_tokens(messages, max_tokens)
+        max_tokens = await self._clamp_max_tokens(messages, max_tokens)
 
         http = await self._http()
+        body: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": 0.9,
+            "repetition_penalty": 1.1,
+        }
+        if "qwen3" in self.model.lower():
+            body["chat_template_kwargs"] = {"enable_thinking": False}
         resp = await http.post(
             f"{self._base_url}/v1/chat/completions",
-            json={
-                "model": self.model,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "top_p": 0.9,
-                "repetition_penalty": 1.1,
-                "chat_template_kwargs": {"enable_thinking": False},
-            },
+            json=body,
         )
         if resp.status_code != 200:
             detail = resp.text[:500]
@@ -106,27 +128,29 @@ class RunPodClient:
     ) -> AsyncIterator[str]:
         """Stream chat completion tokens from vLLM as an async iterator."""
         messages = self._build_messages(prompt, context)
-        max_tokens = self._clamp_max_tokens(messages, max_tokens)
+        max_tokens = await self._clamp_max_tokens(messages, max_tokens)
 
         http = await self._http()
+        body: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": 0.9,
+            "repetition_penalty": 1.1,
+            "stream": True,
+        }
+        if "qwen3" in self.model.lower():
+            body["chat_template_kwargs"] = {"enable_thinking": False}
         async with http.stream(
             "POST",
             f"{self._base_url}/v1/chat/completions",
-            json={
-                "model": self.model,
-                "messages": messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "top_p": 0.9,
-                "repetition_penalty": 1.1,
-                "stream": True,
-                "chat_template_kwargs": {"enable_thinking": False},
-            },
+            json=body,
         ) as resp:
             if resp.status_code != 200:
-                body = await resp.aread()
+                err_body = await resp.aread()
                 raise RuntimeError(
-                    f"vLLM returned {resp.status_code}: {body.decode()[:500]}"
+                    f"vLLM returned {resp.status_code}: {err_body.decode()[:500]}"
                 )
             async for line in resp.aiter_lines():
                 if not line.startswith("data: "):

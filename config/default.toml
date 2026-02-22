@@ -17,7 +17,7 @@ max_new_tokens = 16384
 [runpod]
 pod_id = ""
 api_key = ""
-model = "opensynthesis/Qwen3-14B-heretic"
+model = "opensynthesis/Llama-3.1-70B-heretic-AWQ"
 timeout = 300
 
 [validation]

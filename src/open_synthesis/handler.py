@@ -10,7 +10,7 @@ import runpod
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-MODEL_ID = os.environ.get("MODEL_ID", "opensynthesis/Qwen3-14B-heretic")
+MODEL_ID = os.environ.get("MODEL_ID", "opensynthesis/Llama-3.1-70B-heretic-AWQ")
 HF_TOKEN = os.environ.get("HF_TOKEN")
 
 print(f"Loading model: {MODEL_ID}")

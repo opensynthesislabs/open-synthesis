@@ -90,6 +90,7 @@ def create_app(settings: Settings, origins: list[str] | None = None) -> FastAPI:
         "http://localhost:8080",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8080",
+        "null",  # file:// protocol sends Origin: null
     ]
     app.add_middleware(
         CORSMiddleware,

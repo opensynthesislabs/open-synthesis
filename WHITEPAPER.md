@@ -222,7 +222,7 @@ This is where Open Synthesis differs most significantly from commercial AI resea
 - Supported by Heretic's ablation pipeline
 - Sufficient parameter count for research-quality long-form synthesis
 
-Our recommended model for the prototype is **Qwen3-32B-Instruct**. Qwen3 currently leads open-weights benchmarks on academic and analytical tasks, handles long retrieved context well, and is explicitly supported by Heretic (the project's own README uses a Qwen3 model as its example). It fits on an A100 80GB with 4-bit quantization and produces research-quality prose. For lower-budget prototyping, Qwen3-14B is a viable alternative that fits on a 40GB A100. For maximum synthesis quality where cost is secondary, Llama 3.3 70B Instruct is the alternative — larger, slower, more expensive, but marginally stronger on dense analytical writing.
+Our production model is **Llama 3.1 70B Instruct**, ablated with Heretic and served as an AWQ 4-bit quantized variant. Llama 3.1 70B provides 128K native context and strong academic reasoning. The Llama architecture has proven compatibility with Heretic ablation. It fits on 2x A100 80GB with AWQ quantization and tensor parallelism, enabling the full 128K context window for dense multi-source synthesis. For lower-budget prototyping, Qwen3-14B is a viable alternative that fits on a single A40 48GB at fp16.
 
 **How Heretic works and why it matters.** Open-weights instruction-tuned models have refusal behavior embedded geometrically in their weight matrices. Research by Arditi et al. (2024) demonstrated that this behavior corresponds to a learnable direction in the model's residual stream — a vector in activation space that, when expressed, produces refusal outputs [REF: Arditi et al., 2024]. Heretic exploits this structure through directional ablation: it computes a "refusal direction" for each transformer layer as the difference-of-means between first-token residuals for harmful and harmless example prompts, then orthogonalizes the relevant weight matrices (attention out-projections and MLP down-projections) against those directions. The result is a model that cannot easily express the refusal direction, because the matrix multiplications that would produce it have been modified to suppress it.
 
@@ -242,20 +242,22 @@ Critically, directional ablation does not remove training data biases — it rem
 
 ```bash
 pip install heretic-llm
-heretic Qwen/Qwen3-14B
+
+# For 70B models, use H100 SXM with bnb_4bit quantization
+heretic --model meta-llama/Llama-3.1-70B-Instruct --quantization BNB_4BIT
 ```
 
-Heretic benchmarks the available hardware, runs the optimization, and at completion offers to save the model locally or push it directly to a Hugging Face repository. On an A40 48GB, processing Qwen3-14B takes approximately 50 minutes (200 trials). Our production ablation achieved 3/100 refusals with near-zero KL divergence (~5e-8), indicating effectively zero capability loss. Note that Qwen3 dropped the `-Instruct` suffix — `Qwen/Qwen3-14B` is the instruct-tuned model. Full deployment documentation is in runpod_deployment.md.
+Heretic benchmarks the available hardware, runs the optimization, and at completion offers to save the model locally or push it directly to a Hugging Face repository. For 70B models with `bnb_4bit` quantization on an H100 SXM 80GB, processing takes approximately 1-3 hours (200 trials). Our previous Qwen3-14B ablation achieved 3/100 refusals with near-zero KL divergence (~5e-8), indicating effectively zero capability loss. Full deployment documentation is in runpod_deployment.md.
 
-**Workflow.** Run Heretic once on your chosen model, save the merged model locally, and upload to a HuggingFace repository. The ablated model is served via vLLM on a RunPod GPU pod. This separates the one-time ablation step from the ongoing inference deployment. Our production model is publicly available at [`opensynthesis/Qwen3-14B-heretic`](https://huggingface.co/opensynthesis/Qwen3-14B-heretic).
+**Workflow.** Run Heretic once on your chosen model, save the merged model locally, quantize to AWQ 4-bit for efficient serving, and upload both variants to a HuggingFace repository. The ablated model is served via vLLM with tensor parallelism on a RunPod GPU pod. This separates the one-time ablation step from the ongoing inference deployment. Our production models are publicly available at [`opensynthesis/Llama-3.1-70B-heretic`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic) (full weights) and [`opensynthesis/Llama-3.1-70B-heretic-AWQ`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic-AWQ) (AWQ 4-bit, used for serving).
 
-**Infrastructure.** The synthesis model runs on a RunPod GPU pod with vLLM serving an OpenAI-compatible API. RunPod provides on-demand access to high-performance GPUs without the overhead of maintaining dedicated infrastructure. An A40 48GB ($0.40/hr) is sufficient for the 14B model at fp16 with 32K context. Full deployment configuration is in runpod_deployment.md.
+**Infrastructure.** The synthesis model runs on a RunPod GPU pod with 2x A100 80GB and vLLM serving an OpenAI-compatible API with tensor parallelism. RunPod provides on-demand access to high-performance GPUs without the overhead of maintaining dedicated infrastructure. The 2x A100 configuration (~$2.38/hr) supports the full 128K context window with AWQ quantization. Pods can be stopped when idle (~$7-10/mo storage) and cold-started on demand in ~3-5 minutes. Full deployment configuration is in runpod_deployment.md.
 
 **Inference parameters.** Research synthesis requires different inference settings than conversational AI. The system uses:
 - Temperature: 0.3 (lower than conversational default — prioritizes accuracy over creativity)
 - Top-p: 0.9
 - Repetition penalty: 1.1
-- Maximum output tokens: 4096 per synthesis section
+- Maximum output tokens: 16384 per synthesis section
 
 These parameters are documented in TECHNICAL/inference_config.yaml and should be used when reproducing results.
 

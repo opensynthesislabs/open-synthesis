@@ -40,7 +40,7 @@ class InferenceSettings(BaseSettings):
 class RunPodSettings(BaseSettings):
     pod_id: str = ""
     api_key: str = ""
-    model: str = "opensynthesis/Qwen3-14B-heretic"
+    model: str = "opensynthesis/Llama-3.1-70B-heretic-AWQ"
     base_url: str = ""
     timeout: int = 300
 
