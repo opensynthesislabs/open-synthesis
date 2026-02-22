@@ -23,19 +23,20 @@ Open Synthesis ingests peer-reviewed papers and government data from 31 public A
 
 ## Model
 
-The synthesis layer uses [`opensynthesis/Llama-3.1-70B-heretic-AWQ`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic-AWQ) — Llama 3.1 70B Instruct with directional ablation applied via [Heretic](https://github.com/p-e-w/heretic) to remove refusal behavior on scientific topics, then quantized to AWQ 4-bit for efficient serving.
+The synthesis layer uses Llama 3.1 70B Instruct with directional ablation applied via [Heretic](https://github.com/p-e-w/heretic) to remove refusal behavior on scientific topics. We distribute only the [LoRA adapter](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic-lora) — users must download the base model under Meta's Llama 3.1 Community License and merge locally.
 
 ### Ablation Results
 
 | Metric | Value |
 |---|---|
 | Base model | `meta-llama/Llama-3.1-70B-Instruct` (Llama 3.1 Community License) |
+| LoRA adapter | [`opensynthesis/Llama-3.1-70B-heretic-lora`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic-lora) |
 | Architecture | `LlamaForCausalLM` |
-| Parameters | 70B (AWQ 4-bit quantized for serving) |
+| Parameters | 70B |
 | Method | Heretic directional ablation (Arditi et al., 2024) |
 | Optimization | 200 Optuna TPE trials (8/100 refusals, KL 0.0927) |
 | Context window | 128K tokens (native, fully usable) |
-| Serving | AWQ 4-bit, tensor parallel across 2x A100 80GB |
+| Serving | Merge + AWQ 4-bit, tensor parallel across 2x A100 80GB |
 | Recommended GPU | 2x A100 80GB ($2.38/hr on RunPod) |
 
 The previous production model was [`opensynthesis/Qwen3-14B-heretic`](https://huggingface.co/opensynthesis/Qwen3-14B-heretic) (3/100 refusals, KL ~5e-8). The upgrade to 70B provides native 128K context (vs 32K serving limit) and substantially stronger reasoning for dense, multi-source synthesis.
@@ -82,12 +83,13 @@ open-synthesis paper "Comprehensive review of the heritability of intelligence" 
 
 ### Deployment
 
-Deploy [`opensynthesis/Llama-3.1-70B-heretic-AWQ`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic-AWQ) on a RunPod GPU pod with [vLLM](https://github.com/vllm-project/vllm). No custom ablation required — the model is ready to use.
+Deploy on a RunPod GPU pod with [vLLM](https://github.com/vllm-project/vllm). Merge the LoRA adapter into the base model, quantize to AWQ, and serve:
 
 ```bash
 # On a RunPod GPU pod (2x A100 80GB, ~$2.38/hr):
-pip install vllm
-vllm serve opensynthesis/Llama-3.1-70B-heretic-AWQ \
+pip install vllm peft autoawq
+# See runpod_deployment.md for full merge + quantize + serve instructions
+vllm serve /workspace/Llama-3.1-70B-heretic-AWQ \
   --quantization awq --max-model-len 131072 --tensor-parallel-size 2
 ```
 

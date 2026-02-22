@@ -4,10 +4,9 @@
 
 ### Llama 3.1 70B with Heretic Ablation
 
-**Base model:** `meta-llama/Llama-3.1-70B-Instruct`
-**Post-ablation:** [`opensynthesis/Llama-3.1-70B-heretic`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic) (HuggingFace)
-**Quantized variant:** [`opensynthesis/Llama-3.1-70B-heretic-AWQ`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic-AWQ) (AWQ 4-bit, used for serving)
-**License:** Llama 3.1 Community License (permits research use)
+**Base model:** `meta-llama/Llama-3.1-70B-Instruct` (Llama 3.1 Community License)
+**LoRA adapter:** [`opensynthesis/Llama-3.1-70B-heretic-lora`](https://huggingface.co/opensynthesis/Llama-3.1-70B-heretic-lora) (HuggingFace)
+**Distribution:** LoRA adapter only — users must accept the Llama 3.1 license and download the base model separately, then merge locally or load with PEFT
 **Parameter count:** 70 billion
 **Architecture:** `LlamaForCausalLM`
 **Context window:** 128,000 tokens (fully usable in serving config)

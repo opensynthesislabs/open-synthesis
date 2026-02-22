@@ -46,16 +46,44 @@ runpodctl create pod \
   --secureCloud
 ```
 
-### 2. Install vLLM and start serving
+### 2. Merge LoRA adapter and quantize
 
-SSH into the pod and run:
+SSH into the pod. Download the base model, apply the LoRA adapter, and quantize to AWQ:
 
 ```bash
-# Install vLLM (includes torch, transformers, etc.)
-pip install vllm
+pip install vllm peft autoawq huggingface_hub
 
-# Start vLLM with the ablated + quantized model
-vllm serve opensynthesis/Llama-3.1-70B-heretic-AWQ \
+# Download and merge LoRA adapter into base model
+python3 -c "
+from peft import PeftModel
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+
+base = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-3.1-70B-Instruct', torch_dtype=torch.float16, device_map='auto')
+model = PeftModel.from_pretrained(base, 'opensynthesis/Llama-3.1-70B-heretic-lora')
+merged = model.merge_and_unload()
+merged.save_pretrained('/workspace/Llama-3.1-70B-heretic')
+AutoTokenizer.from_pretrained('meta-llama/Llama-3.1-70B-Instruct').save_pretrained('/workspace/Llama-3.1-70B-heretic')
+"
+
+# Quantize to AWQ 4-bit (optional, saves VRAM for larger context)
+python3 -c "
+from awq import AutoAWQForCausalLM
+from transformers import AutoTokenizer
+
+model = AutoAWQForCausalLM.from_pretrained('/workspace/Llama-3.1-70B-heretic', device_map='auto')
+tokenizer = AutoTokenizer.from_pretrained('/workspace/Llama-3.1-70B-heretic')
+model.quantize(tokenizer, quant_config={'zero_point': True, 'q_group_size': 128, 'w_bit': 4, 'version': 'GEMM'})
+model.save_quantized('/workspace/Llama-3.1-70B-heretic-AWQ')
+tokenizer.save_pretrained('/workspace/Llama-3.1-70B-heretic-AWQ')
+"
+```
+
+### 3. Start serving
+
+```bash
+# Serve the AWQ-quantized model
+vllm serve /workspace/Llama-3.1-70B-heretic-AWQ \
   --quantization awq \
   --max-model-len 131072 \
   --tensor-parallel-size 2 \
@@ -64,7 +92,7 @@ vllm serve opensynthesis/Llama-3.1-70B-heretic-AWQ \
   --port 8000
 ```
 
-First run downloads the AWQ-quantized model weights (~40GB). Subsequent starts use the cached model on the volume. Cold start takes ~3-5 minutes.
+First run requires merging and quantization (~1-2 hours). Subsequent starts use the cached model on the volume. Cold start takes ~3-5 minutes.
 
 ### 3. Test the endpoint
 
